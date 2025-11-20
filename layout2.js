@@ -1,12 +1,3 @@
-/**
- * layout.js - RelativityLab Global Layout Manager (Floating Back Button at Bottom-Left)
- *
- * Functions:
- * 1. Inject Tailwind CSS & Google Fonts
- * 2. Create Grid Background
- * 3. Create Floating "Back to Home" Button (bottom-left)
- */
-
 (function() {
     // --- 1. Resource Injection (CSS & Fonts) ---
     const tailwindScript = document.createElement('script');
@@ -38,48 +29,39 @@
         };
         initLayout();
     };
-// analytics.js
-(function() {
-    const gaScript = document.createElement('script');
-    gaScript.async = true;
-    gaScript.src = "https://www.googletagmanager.com/gtag/js?id=G-TLM5FMP9KX";
-    document.head.appendChild(gaScript);
 
-    const inlineScript = document.createElement('script');
-    inlineScript.innerHTML = `
-       window.dataLayer = window.dataLayer || [];
-       function gtag(){dataLayer.push(arguments);}
-       gtag('js', new Date());
-       gtag('config', 'G-TLM5FMP9KX');
-       `;
-    document.head.appendChild(inlineScript);
+    // analytics.js
+    (function() {
+        const gaScript = document.createElement('script');
+        gaScript.async = true;
+        gaScript.src = "https://www.googletagmanager.com/gtag/js?id=G-TLM5FMP9KX";
+        document.head.appendChild(gaScript);
+
+        const inlineScript = document.createElement('script');
+        inlineScript.innerHTML = `
+            window.dataLayer = window.dataLayer || [];
+            function gtag(){dataLayer.push(arguments);}
+            gtag('js', new Date());
+            gtag('config', 'G-TLM5FMP9KX');
+        `;
+        document.head.appendChild(inlineScript);
     })();
 
     function initLayout() {
-        // 检测是否在 demo-html 子目录，用于生成回首页路径
         const ROOT_PATH = window.location.pathname.includes('/demo-html/')
             ? '../'
             : './';
 
-        // --- 2. Inject Custom CSS (Background Grid) ---
+        // --- 2. Inject Custom CSS (Grid Only, NO body overrides) ---
         const style = document.createElement('style');
         style.innerHTML = `
-            body { 
-                background-color: #050505; 
-                margin: 0; 
-                font-family: 'Inter', sans-serif; 
-                color: white; 
-                overflow-x: hidden;
-                padding-bottom: 2.5rem; /* 避免内容挤到按钮上 */
-            }
-
             /* Sci-fi Grid Background */
             .bg-grid-canvas {
-                position: fixed; 
-                top: 0; 
-                left: 0; 
-                width: 100%; 
-                height: 100%; 
+                position: fixed;
+                top: 0;
+                left: 0;
+                width: 100%;
+                height: 100%;
                 z-index: -1;
                 background-size: 40px 40px;
                 background-image:
@@ -92,12 +74,12 @@
         `;
         document.head.appendChild(style);
 
-        // Add background
+        // Add grid background
         const bgGrid = document.createElement('div');
         bgGrid.className = "bg-grid-canvas";
         document.body.prepend(bgGrid);
 
-        // --- 3. Floating Back Button (moved to bottom-left) ---
+        // --- 3. Floating Back Button ---
         const headerHTML = `
             <div class="fixed bottom-4 left-6 z-50">
                 <a href="${ROOT_PATH}index.html"
@@ -107,7 +89,6 @@
                 </a>
             </div>
         `;
-
         document.body.insertAdjacentHTML('beforeend', headerHTML);
     }
 })();
