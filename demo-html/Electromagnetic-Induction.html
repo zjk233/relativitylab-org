@@ -1,0 +1,614 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Faraday's Law Simulation - Clear View</title>
+    <style>
+        /* CSS Variables for Theming */
+        :root {
+            --bg-color: #111827;     /* Deep Blue/Gray */
+            --text-color: #ffffff;
+            --subtext-color: #aaaaaa;
+            --ui-bg: rgba(0, 0, 0, 0.8);
+            --ui-border: #444;
+        }
+
+        body.light-theme {
+            --bg-color: #e5e7eb;     /* Light Gray (Darker than pure white for contrast) */
+            --text-color: #1f2937;   
+            --subtext-color: #4b5563;
+            --ui-bg: rgba(255, 255, 255, 0.9);
+            --ui-border: #94a3b8;
+        }
+
+        body {
+            margin: 0;
+            overflow: hidden;
+            background-color: var(--bg-color);
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            user-select: none;
+            transition: background-color 0.5s ease;
+        }
+
+        #canvas-container {
+            width: 100vw;
+            height: 100vh;
+            display: block;
+            cursor: grab;
+        }
+        
+        #canvas-container:active {
+            cursor: grabbing;
+        }
+
+        #ui-layer {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none; 
+            padding: 20px;
+            box-sizing: border-box;
+        }
+
+        .top-left {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            pointer-events: auto;
+        }
+
+        .top-center {
+            position: absolute;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            pointer-events: auto;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .bottom-left {
+            position: absolute;
+            bottom: 20px;
+            left: 20px;
+            pointer-events: auto;
+        }
+
+        h1 {
+            color: var(--text-color);
+            font-size: 24px;
+            margin: 0 0 5px 0;
+            text-shadow: 0 0 10px rgba(0, 255, 255, 0.3);
+            transition: color 0.5s;
+        }
+
+        h2 {
+            color: var(--subtext-color);
+            font-size: 14px;
+            margin: 0;
+            font-weight: normal;
+            max-width: 300px;
+            transition: color 0.5s;
+        }
+
+        /* Status Indicator */
+        #status-box {
+            background: var(--ui-bg);
+            border: 2px solid var(--ui-border);
+            padding: 10px 30px;
+            border-radius: 30px;
+            text-align: center;
+            transition: all 0.3s;
+            min-width: 220px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+
+        #status-text {
+            color: var(--text-color);
+            font-size: 18px;
+            font-weight: bold;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        /* Buttons */
+        .btn-group {
+            display: flex;
+            gap: 10px;
+        }
+
+        .toggle-btn {
+            background: #374151;
+            color: white;
+            border: 1px solid #4b5563;
+            padding: 8px 16px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: all 0.3s;
+            outline: none;
+            font-weight: 600;
+        }
+
+        body.light-theme .toggle-btn {
+            background: #fff;
+            color: #374151;
+            border: 1px solid #cbd5e1;
+        }
+
+        .toggle-btn:hover { filter: brightness(1.1); transform: translateY(-1px); }
+        
+        .toggle-btn.active {
+            background: #2563eb !important;
+            color: white !important;
+            border-color: #3b82f6 !important;
+            box-shadow: 0 0 12px rgba(37, 99, 235, 0.4);
+        }
+
+        /* Legend */
+        .legend {
+            background: var(--ui-bg);
+            padding: 15px;
+            border-radius: 8px;
+            border: 1px solid var(--ui-border);
+            color: var(--subtext-color);
+            font-size: 13px;
+            transition: all 0.5s;
+        }
+        .legend-item {
+            display: flex;
+            align-items: center;
+            margin-bottom: 8px;
+        }
+        .dot { 
+            width: 14px; 
+            height: 14px; 
+            border-radius: 50%; 
+            margin-right: 10px;
+            border: 2px solid rgba(255,255,255,0.2);
+        }
+
+    </style>
+    <!-- Load Three.js -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+</head>
+<body>
+
+    <div id="canvas-container"></div>
+
+    <div id="ui-layer">
+        <div class="top-left">
+            <h1>Electromagnetic Induction</h1>
+            <h2>Faraday's Law Visualization</h2>
+        </div>
+
+        <div class="top-center">
+            <div class="btn-group">
+                <button id="theme-btn" class="toggle-btn">Theme: Dark</button>
+                <button id="mode-btn" class="toggle-btn active">Mode: AUTO</button>
+            </div>
+            <div id="status-box">
+                <div id="status-text">No Current</div>
+            </div>
+        </div>
+
+        <div class="bottom-left">
+            <div class="legend">
+                <div class="legend-item"><span class="dot" style="background:dodgerblue;"></span>Low Speed (Weak)</div>
+                <div class="legend-item"><span class="dot" style="background:gold;"></span>Medium Speed</div>
+                <div class="legend-item"><span class="dot" style="background:crimson;"></span>High Speed (Strong)</div>
+                <div style="margin-top:8px; font-style:italic; opacity: 0.8;">
+                    *Particles show flow direction
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // --- CONFIGURATION & STATE ---
+        const CONFIG = {
+            coilRadius: 4,
+            coilLength: 14,
+            coilTurns: 10,
+            electronCount: 800, 
+            baseParticleSize: 2.8 // Large particles for visibility
+        };
+
+        const STATE = {
+            isAuto: true,
+            isDarkTheme: true,
+            magnetPos: new THREE.Vector3(-15, 0, 0),
+            magnetVelocity: 0,
+            isDragging: false,
+            dragStartX: 0,
+            dragMagnetStartX: 0
+        };
+
+        // Theme Colors
+        const THEME = {
+            dark: {
+                bg: 0x111827, // Deep slate
+                fog: 0x111827,
+                coilColor: 0x88ccff,
+                coilOpacity: 0.3
+            },
+            light: {
+                bg: 0xe5e7eb, // Grayish white
+                fog: 0xe5e7eb,
+                coilColor: 0x2563eb,
+                coilOpacity: 0.25
+            }
+        };
+
+        // --- SCENE SETUP ---
+        const scene = new THREE.Scene();
+        scene.fog = new THREE.FogExp2(THEME.dark.fog, 0.015);
+
+        const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 1000);
+        camera.position.set(0, 22, 38); // Slightly higher/further for better overview
+        camera.lookAt(0, 0, 0);
+
+        const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.setPixelRatio(window.devicePixelRatio);
+        renderer.setClearColor(THEME.dark.bg);
+        document.getElementById('canvas-container').appendChild(renderer.domElement);
+
+        // --- LIGHTING ---
+        // Increased ambient light for better magnet visibility
+        const ambientLight = new THREE.AmbientLight(0x888888); 
+        scene.add(ambientLight);
+
+        const dirLight = new THREE.DirectionalLight(0xffffff, 1.2);
+        dirLight.position.set(10, 20, 10);
+        scene.add(dirLight);
+
+        // Coil internal glow
+        const coilLight = new THREE.PointLight(0x00ffff, 0, 20);
+        scene.add(coilLight);
+
+        // --- 1. THE COIL ---
+        const coilCurve = new THREE.CatmullRomCurve3([]);
+        for (let i = 0; i <= 200; i++) {
+            const t = i / 200;
+            const angle = t * Math.PI * 2 * CONFIG.coilTurns;
+            const x = (t - 0.5) * CONFIG.coilLength;
+            const y = Math.cos(angle) * CONFIG.coilRadius;
+            const z = Math.sin(angle) * CONFIG.coilRadius;
+            coilCurve.points.push(new THREE.Vector3(x, y, z));
+        }
+
+        const tubeGeometry = new THREE.TubeGeometry(coilCurve, 300, 0.4, 12, false);
+        const tubeMaterial = new THREE.MeshPhysicalMaterial({
+            color: THEME.dark.coilColor,
+            metalness: 0.3,
+            roughness: 0.1,
+            transmission: 0.7,
+            opacity: THEME.dark.coilOpacity,
+            transparent: true,
+            side: THREE.DoubleSide
+        });
+        const coilMesh = new THREE.Mesh(tubeGeometry, tubeMaterial);
+        scene.add(coilMesh);
+
+        // --- 2. ELECTRONS (Slow & Clear) ---
+        function createCircleTexture() {
+            const cvs = document.createElement('canvas');
+            cvs.width = 64; cvs.height = 64;
+            const ctx = cvs.getContext('2d');
+            const grad = ctx.createRadialGradient(32,32,0,32,32,32);
+            grad.addColorStop(0, 'rgba(255,255,255,1)');
+            grad.addColorStop(0.5, 'rgba(255,255,255,0.8)');
+            grad.addColorStop(1, 'rgba(255,255,255,0)');
+            ctx.fillStyle = grad;
+            ctx.fillRect(0,0,64,64);
+            return new THREE.CanvasTexture(cvs);
+        }
+        
+        const electronMaterial = new THREE.PointsMaterial({
+            color: 0x00ffff,
+            size: CONFIG.baseParticleSize,
+            map: createCircleTexture(),
+            transparent: true,
+            opacity: 0.95,
+            blending: THREE.AdditiveBlending,
+            depthWrite: false
+        });
+
+        const electronGeo = new THREE.BufferGeometry();
+        const positions = [];
+        const curveIndices = []; 
+        const offsets = []; 
+
+        for(let i=0; i<CONFIG.electronCount; i++){
+            positions.push(0,0,0);
+            curveIndices.push(Math.random()); 
+            offsets.push(
+                (Math.random()-0.5)*0.5, 
+                (Math.random()-0.5)*0.5, 
+                (Math.random()-0.5)*0.5 
+            );
+        }
+        
+        electronGeo.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+        const electronSystem = new THREE.Points(electronGeo, electronMaterial);
+        scene.add(electronSystem);
+
+        // --- 3. THE MAGNET (High Contrast) ---
+        const magnetGroup = new THREE.Group();
+        
+        // UPDATED: Brighter materials with Emissive glow to stand out against background
+        const magMatN = new THREE.MeshStandardMaterial({ 
+            color: 0xff3333,     // Bright Red
+            emissive: 0x550000,  // Red Glow
+            roughness: 0.3,
+            metalness: 0.4
+        });
+        const magMatS = new THREE.MeshStandardMaterial({ 
+            color: 0x3366ff,     // Bright Blue
+            emissive: 0x001155,  // Blue Glow
+            roughness: 0.3,
+            metalness: 0.4
+        });
+        
+        // Main Magnet Body
+        const poleN = new THREE.Mesh(new THREE.BoxGeometry(3, 3, 3), magMatN);
+        poleN.position.x = 1.5;
+        const poleS = new THREE.Mesh(new THREE.BoxGeometry(3, 3, 3), magMatS);
+        poleS.position.x = -1.5;
+        
+        // Add a white border/frame to magnet for better contrast (optional but helpful)
+        const frameGeo = new THREE.BoxGeometry(6.1, 3.1, 3.1);
+        const frameMat = new THREE.MeshBasicMaterial({ color: 0xffffff, wireframe: true, transparent: true, opacity: 0.3 });
+        const frame = new THREE.Mesh(frameGeo, frameMat);
+
+        magnetGroup.add(poleN, poleS, frame);
+
+        // Field Lines
+        const lineMat = new THREE.LineBasicMaterial({ color: 0xffffff, opacity: 0.4, transparent: true });
+        const fieldGroup = new THREE.Group();
+        
+        for(let i=0; i<5; i++) {
+            const radiusY = 2.5 + (i * 1.2);
+            const radiusX = 4 + (i * 1.5);
+            const curve = new THREE.EllipseCurve(0,0, radiusX, radiusY, 0, Math.PI*2);
+            const pts = curve.getPoints(50);
+            const geo = new THREE.BufferGeometry().setFromPoints(pts);
+            const line = new THREE.Line(geo, lineMat);
+            fieldGroup.add(line);
+        }
+        const field1 = fieldGroup.clone(); 
+        const field2 = fieldGroup.clone(); field2.rotation.x = Math.PI/2;
+        magnetGroup.add(field1, field2);
+
+        scene.add(magnetGroup);
+
+        // Drag Interaction Plane
+        const dragPlane = new THREE.Mesh(
+            new THREE.PlaneGeometry(100, 50),
+            new THREE.MeshBasicMaterial({ visible: false })
+        );
+        dragPlane.rotation.x = -Math.PI / 2;
+        scene.add(dragPlane);
+
+        // --- INTERACTION LOGIC ---
+        const raycaster = new THREE.Raycaster();
+        const mouse = new THREE.Vector2();
+        const canvas = document.getElementById('canvas-container');
+
+        function getIntersects(event, object) {
+            mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
+            mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
+            raycaster.setFromCamera(mouse, camera);
+            return raycaster.intersectObject(object);
+        }
+
+        canvas.addEventListener('mousedown', (e) => {
+            if(STATE.isAuto) return;
+            
+            const intersects = getIntersects(e, magnetGroup);
+            if(intersects.length > 0 || getIntersects(e, dragPlane).length > 0) {
+                STATE.isDragging = true;
+                const planeIntersect = getIntersects(e, dragPlane);
+                if(planeIntersect.length > 0) {
+                    STATE.dragStartX = planeIntersect[0].point.x;
+                    STATE.dragMagnetStartX = magnetGroup.position.x;
+                }
+            }
+        });
+
+        window.addEventListener('mousemove', (e) => {
+            if (!STATE.isDragging) return;
+            const intersects = getIntersects(e, dragPlane);
+            if (intersects.length > 0) {
+                const currentX = intersects[0].point.x;
+                let newX = STATE.dragMagnetStartX + (currentX - STATE.dragStartX);
+                newX = Math.max(-25, Math.min(25, newX));
+                magnetGroup.position.x = newX;
+                
+                const instVelocity = (newX - STATE.magnetPos.x); 
+                STATE.magnetVelocity = instVelocity * 5;
+                STATE.magnetPos.x = newX;
+            }
+        });
+
+        window.addEventListener('mouseup', () => {
+            STATE.isDragging = false;
+            if(!STATE.isAuto) STATE.magnetVelocity = 0;
+        });
+
+        // --- UI & THEME CONTROLS ---
+        const modeBtn = document.getElementById('mode-btn');
+        const themeBtn = document.getElementById('theme-btn');
+        const statusText = document.getElementById('status-text');
+        const statusBox = document.getElementById('status-box');
+
+        modeBtn.addEventListener('click', () => {
+            STATE.isAuto = !STATE.isAuto;
+            modeBtn.textContent = STATE.isAuto ? "Mode: AUTO" : "Mode: MANUAL";
+            modeBtn.classList.toggle('active', STATE.isAuto);
+            
+            if(STATE.isAuto) {
+                statusText.innerHTML = "Auto Oscillating";
+            } else {
+                statusText.innerHTML = "Drag the Magnet!";
+                STATE.magnetVelocity = 0;
+            }
+        });
+
+        themeBtn.addEventListener('click', () => {
+            STATE.isDarkTheme = !STATE.isDarkTheme;
+            const body = document.body;
+
+            if (STATE.isDarkTheme) {
+                // Dark Theme
+                themeBtn.textContent = "Theme: Dark";
+                body.classList.remove('light-theme');
+                
+                renderer.setClearColor(THEME.dark.bg);
+                scene.fog.color.setHex(THEME.dark.fog);
+                lineMat.color.setHex(0xffffff);
+                lineMat.opacity = 0.4;
+                
+                tubeMaterial.color.setHex(THEME.dark.coilColor);
+                tubeMaterial.opacity = THEME.dark.coilOpacity;
+                electronMaterial.blending = THREE.AdditiveBlending; // Glow
+                
+            } else {
+                // Light Theme
+                themeBtn.textContent = "Theme: Light";
+                body.classList.add('light-theme');
+
+                renderer.setClearColor(THEME.light.bg);
+                scene.fog.color.setHex(THEME.light.fog);
+                lineMat.color.setHex(0x000000);
+                lineMat.opacity = 0.2;
+
+                tubeMaterial.color.setHex(THEME.light.coilColor);
+                tubeMaterial.opacity = THEME.light.coilOpacity;
+                electronMaterial.blending = THREE.NormalBlending; // Solid
+            }
+        });
+
+        // --- ANIMATION LOOP ---
+        let time = 0;
+        const colors = {
+            blue: new THREE.Color(0x0088ff),
+            yellow: new THREE.Color(0xffcc00),
+            red: new THREE.Color(0xff2222),
+        };
+
+        function animate() {
+            requestAnimationFrame(animate);
+            
+            if (STATE.isAuto) {
+                time += 0.02; // Slower animation speed for magnet too
+                const prevX = magnetGroup.position.x;
+                magnetGroup.position.x = Math.sin(time) * 18;
+                STATE.magnetVelocity = magnetGroup.position.x - prevX;
+            } else {
+                if(!STATE.isDragging) STATE.magnetVelocity *= 0.85;
+            }
+
+            // Physics Calculation
+            const magnetX = magnetGroup.position.x;
+            const distToCenter = Math.abs(magnetX);
+            let proximity = 0;
+            if(distToCenter < 10) {
+                proximity = Math.cos((distToCenter / 10) * (Math.PI/2)); 
+            }
+            
+            const rawCurrent = Math.abs(STATE.magnetVelocity) * proximity;
+            const displayCurrent = Math.min(rawCurrent * 2, 1); 
+
+            // UI Updates
+            if (displayCurrent > 0.05) {
+                let txt = "";
+                let borderColor = "";
+                
+                if(displayCurrent > 0.7) { 
+                    txt = "High Current!"; 
+                    borderColor = "crimson"; 
+                    statusText.style.color = STATE.isDarkTheme ? "#ff5555" : "#dc2626";
+                } else if(displayCurrent > 0.3) { 
+                    txt = "Current Flowing"; 
+                    borderColor = "gold"; 
+                    statusText.style.color = STATE.isDarkTheme ? "#ffff55" : "#d97706";
+                } else { 
+                    txt = "Low Current"; 
+                    borderColor = "dodgerblue"; 
+                    statusText.style.color = STATE.isDarkTheme ? "#55ccff" : "#2563eb";
+                }
+                
+                statusText.innerHTML = txt;
+                statusBox.style.borderColor = borderColor;
+                
+                coilLight.intensity = displayCurrent * 2.5;
+                coilLight.color.setHex(colors.blue.getHex());
+                coilLight.color.lerp(colors.red, displayCurrent);
+            } else {
+                if(!STATE.isDragging) {
+                    statusText.innerHTML = STATE.isAuto ? "Moving..." : "Drag Magnet";
+                    statusText.style.color = STATE.isDarkTheme ? "white" : "#333";
+                    statusBox.style.borderColor = STATE.isDarkTheme ? "#444" : "#ccc";
+                    coilLight.intensity = 0;
+                }
+            }
+
+            // Particle Updates
+            const positionsAttr = electronSystem.geometry.attributes.position;
+            
+            // UPDATED: Significantly reduced speed factor (0.12 -> 0.04)
+            const flowSpeed = STATE.magnetVelocity * proximity * 0.004; 
+            
+            const targetColor = new THREE.Color(colors.blue);
+            if (displayCurrent > 0.3) targetColor.lerp(colors.yellow, (displayCurrent-0.3)*2);
+            if (displayCurrent > 0.7) targetColor.lerp(colors.red, (displayCurrent-0.7)*3);
+            
+            electronSystem.material.color.lerp(targetColor, 0.1);
+            
+            // Particles get bigger when moving, but reset to base size
+            electronSystem.material.size = CONFIG.baseParticleSize + (displayCurrent * 1.5);
+
+            for(let i=0; i<CONFIG.electronCount; i++) {
+                curveIndices[i] += flowSpeed; 
+                if(curveIndices[i] > 1) curveIndices[i] -= 1;
+                if(curveIndices[i] < 0) curveIndices[i] += 1;
+
+                const p = coilCurve.getPointAt(curveIndices[i]);
+                
+                // Reduced jitter to keep movement direction clear
+                const jitterAmt = displayCurrent * 0.2; 
+                const jX = (Math.random()-0.5) * jitterAmt;
+                const jY = (Math.random()-0.5) * jitterAmt;
+                const jZ = (Math.random()-0.5) * jitterAmt;
+
+                positionsAttr.setXYZ(i, 
+                    p.x + offsets[i*3] + jX, 
+                    p.y + offsets[i*3+1] + jY, 
+                    p.z + offsets[i*3+2] + jZ
+                );
+            }
+            positionsAttr.needsUpdate = true;
+
+            renderer.render(scene, camera);
+        }
+
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
+
+        animate();
+
+    </script>
+</body>
+</html>
+```

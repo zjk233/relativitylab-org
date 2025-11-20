@@ -1,0 +1,534 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chemical Bonding & Orbitals</title>
+    <style>
+        :root {
+            --bg: #020205;
+            --panel: rgba(20, 25, 35, 0.85);
+            --electron-blue: #00f3ff;
+            --electron-purple: #bc13fe;
+            --nucleus-red: #ff3333;
+            --energy-green: #00ff88;
+            --text: #ffffff;
+            --glass: backdrop-filter: blur(12px);
+        }
+
+        body {
+            margin: 0;
+            overflow: hidden;
+            background-color: var(--bg);
+            font-family: 'Segoe UI', Roboto, sans-serif;
+            color: var(--text);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+        }
+
+        /* --- MAIN LAYOUT --- */
+        #app-container {
+            position: relative;
+            width: 100vw;
+            height: 100vh;
+        }
+
+        canvas { display: block; width: 100%; height: 100%; }
+
+        /* --- UI CONTROLS --- */
+        #ui-layer {
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 100%;
+            pointer-events: none;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            padding: 30px;
+            box-sizing: border-box;
+        }
+
+        header {
+            pointer-events: auto;
+        }
+        h1 { margin: 0; font-weight: 800; letter-spacing: 1px; text-transform: uppercase; 
+             background: linear-gradient(90deg, var(--electron-blue), #fff); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+        h2 { margin: 5px 0; font-size: 14px; color: #888; font-weight: 400; }
+
+        /* Control Panel (Bottom) */
+        #control-panel {
+            pointer-events: auto;
+            width: 100%;
+            max-width: 600px;
+            align-self: center;
+            background: var(--panel);
+            border: 1px solid rgba(255,255,255,0.15);
+            border-radius: 16px;
+            padding: 25px;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.6);
+            var(--glass);
+        }
+
+        /* Distance Slider */
+        .slider-container {
+            display: flex; flex-direction: column; gap: 10px;
+        }
+        .slider-labels { display: flex; justify-content: space-between; font-size: 13px; font-weight: 700; color: #aaa; }
+        .val-display { color: var(--electron-blue); font-family: monospace; font-size: 14px; }
+
+        input[type=range] {
+            width: 100%; -webkit-appearance: none; background: transparent;
+        }
+        input[type=range]::-webkit-slider-thumb {
+            -webkit-appearance: none; height: 20px; width: 20px;
+            border-radius: 50%; background: #fff;
+            cursor: pointer; margin-top: -8px;
+            box-shadow: 0 0 15px white;
+        }
+        input[type=range]::-webkit-slider-runnable-track {
+            width: 100%; height: 4px; background: linear-gradient(90deg, #ff3333, var(--energy-green), #333); border-radius: 2px;
+        }
+
+        /* Bond Type Buttons */
+        .bond-selector {
+            display: flex; gap: 10px; justify-content: center;
+        }
+        .bond-btn {
+            background: rgba(255,255,255,0.05);
+            border: 1px solid rgba(255,255,255,0.2);
+            color: #aaa;
+            padding: 10px 20px;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.3s;
+            font-weight: 600;
+            font-size: 13px;
+        }
+        .bond-btn:hover { background: rgba(255,255,255,0.1); }
+        .bond-btn.active {
+            background: var(--electron-blue);
+            color: #000;
+            border-color: var(--electron-blue);
+            box-shadow: 0 0 15px rgba(0, 243, 255, 0.3);
+        }
+
+        /* --- ENERGY GRAPH (Top Right) --- */
+        #graph-container {
+            pointer-events: auto;
+            position: absolute;
+            top: 30px; right: 30px;
+            width: 280px; height: 180px;
+            background: rgba(0,0,0,0.5);
+            border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 8px;
+            backdrop-filter: blur(5px);
+        }
+        #graph-canvas { width: 100%; height: 100%; border-radius: 8px; }
+        
+        .graph-label {
+            position: absolute; font-size: 10px; color: #666;
+        }
+        .status-tag {
+            position: absolute; top: 10px; right: 10px;
+            padding: 4px 8px; border-radius: 4px; font-size: 11px; font-weight: bold;
+            text-transform: uppercase;
+        }
+
+    </style>
+</head>
+<body>
+
+    <div id="app-container">
+        <canvas id="simCanvas"></canvas>
+        
+        <!-- Energy Graph Overlay -->
+        <div id="graph-container">
+            <canvas id="graph-canvas"></canvas>
+            <span class="graph-label" style="left: 5px; top: 5px;">Potential Energy</span>
+            <span class="graph-label" style="right: 5px; bottom: 5px;">Distance (r)</span>
+            <div id="energy-status" class="status-tag" style="background: #333; color: #aaa;">Neutral</div>
+        </div>
+
+        <div id="ui-layer">
+            <header>
+                <h1>Covalent Bond Formation</h1>
+                <h2>Orbital Overlap & Energy Minimization</h2>
+            </header>
+
+            <div id="control-panel">
+                <!-- Bond Selector -->
+                <div class="bond-selector">
+                    <button class="bond-btn active" onclick="setBondType('single')">H-H (Single Bond)</button>
+                    <button class="bond-btn" onclick="setBondType('double')">O=O (Double Bond)</button>
+                    <button class="bond-btn" onclick="setBondType('triple')">N≡N (Triple Bond)</button>
+                </div>
+
+                <!-- Distance Slider -->
+                <div class="slider-container">
+                    <div class="slider-labels">
+                        <span>Repulsion (Too Close)</span>
+                        <span>Attraction (Ideal)</span>
+                        <span>Separated</span>
+                    </div>
+                    <input type="range" id="dist-slider" min="0.6" max="4.0" step="0.01" value="4.0">
+                    <div style="display:flex; justify-content:space-between; margin-top:5px;">
+                        <span style="font-size:12px; color:#666;">Internuclear Distance (r)</span>
+                        <span id="dist-val" class="val-display">4.00 Å</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+<script>
+    // --- CONFIGURATION ---
+    const CONFIG = {
+        bondType: 'single', // single, double, triple
+        distance: 4.0,      // Angstroms
+        idealDist: 1.2,     // Stable bond length
+        repulsionDist: 0.8, // Too close
+        nucleusRadius: 8,
+        electronCount: 300,
+        colors: {
+            blue: '0, 243, 255',
+            purple: '188, 19, 254'
+        }
+    };
+
+    // --- CANVAS SETUP ---
+    const canvas = document.getElementById('simCanvas');
+    const ctx = canvas.getContext('2d');
+    
+    const graphCanvas = document.getElementById('graph-canvas');
+    const gCtx = graphCanvas.getContext('2d');
+
+    let width, height;
+
+    // --- PARTICLE SYSTEM ---
+    let particles = [];
+
+    class Electron {
+        constructor() {
+            this.reset();
+        }
+
+        reset() {
+            this.angle = Math.random() * Math.PI * 2;
+            this.orbitRadius = 30 + Math.random() * 60;
+            this.speed = 0.05 + Math.random() * 0.1;
+            this.phase = Math.random() * Math.PI * 2;
+            this.targetAtom = Math.random() > 0.5 ? -1 : 1; // Left or Right atom
+            
+            // For Double/Triple bonds (Pi orbitals)
+            this.orbitalType = 's'; // s (spherical) or p (dumbbell)
+            if (Math.random() > 0.6 && CONFIG.bondType !== 'single') {
+                this.orbitalType = 'p';
+            }
+        }
+
+        update(centerX, centerY, separation) {
+            // Animation Logic
+            this.phase += this.speed;
+
+            // Define Atom Centers
+            const atomL = { x: centerX - separation/2, y: centerY };
+            const atomR = { x: centerX + separation/2, y: centerY };
+
+            // BONDING LOGIC:
+            // If atoms are close (bond formed), electrons delocalize
+            const isBonded = separation < 180; // Pixel distance threshold
+            
+            let x, y;
+
+            if (isBonded && Math.random() > 0.1) {
+                // MOLECULAR ORBITAL (Shared)
+                
+                if (this.orbitalType === 's') {
+                    // Sigma Bond: Figure-8 / Ellipse around both
+                    const t = this.phase;
+                    // Parametric equation for a smooth oval/peanut wrapper
+                    const wrapW = separation/2 + 60;
+                    const wrapH = 50;
+                    x = centerX + Math.cos(t) * wrapW;
+                    y = centerY + Math.sin(t) * wrapH;
+                } else {
+                    // Pi Bond: Lobes above/below
+                    // Vertical figure 8 centered between atoms
+                    const t = this.phase;
+                    const lobeHeight = (CONFIG.bondType === 'triple') ? 120 : 80;
+                    x = centerX + Math.sin(t) * 40; // Width of lobe
+                    y = centerY + Math.cos(t * 2) * lobeHeight; // Height of lobe
+                    
+                    // Rotate slightly based on particle id for volume
+                    if (CONFIG.bondType === 'triple' && Math.random() > 0.5) {
+                         // Make the triple bond fatter/denser
+                         x += (Math.random()-0.5)*20;
+                    }
+                }
+
+            } else {
+                // ATOMIC ORBITAL (Isolated)
+                const target = (this.targetAtom === -1) ? atomL : atomR;
+                x = target.x + Math.cos(this.phase) * this.orbitRadius;
+                y = target.y + Math.sin(this.phase) * this.orbitRadius;
+            }
+
+            // Jitter for Quantum Uncertainty
+            x += (Math.random() - 0.5) * 5;
+            y += (Math.random() - 0.5) * 5;
+
+            return { x, y, type: this.orbitalType };
+        }
+    }
+
+    // Initialize Particles
+    for(let i=0; i<CONFIG.electronCount; i++) {
+        particles.push(new Electron());
+    }
+
+    // --- RENDERING ---
+
+    function draw() {
+        // 1. Setup Frame
+        ctx.fillStyle = '#020205';
+        ctx.fillRect(0, 0, width, height);
+        
+        // Center Point
+        const cx = width / 2;
+        const cy = height / 2;
+
+        // Convert physical Angstroms to Screen Pixels (approx scale)
+        // Range 0.6 -> 4.0 maps to roughly 50px -> 400px separation
+        const pxSeparation = CONFIG.distance * 100;
+        const atomL_x = cx - pxSeparation/2;
+        const atomR_x = cx + pxSeparation/2;
+
+        // 2. Draw Electron Clouds (Volumetric Glow)
+        // We use additive blending ('lighter') to simulate density
+        ctx.globalCompositeOperation = 'lighter';
+        
+        // Draw Particles
+        particles.forEach(p => {
+            const pos = p.update(cx, cy, pxSeparation);
+            
+            const size = (pos.type === 's') ? 12 : 18;
+            const color = (pos.type === 's') ? CONFIG.colors.blue : CONFIG.colors.purple;
+            
+            // Radial Gradient for soft particle
+            const grad = ctx.createRadialGradient(pos.x, pos.y, 0, pos.x, pos.y, size);
+            grad.addColorStop(0, `rgba(${color}, 1)`);
+            grad.addColorStop(0.4, `rgba(${color}, 0.2)`);
+            grad.addColorStop(1, `rgba(${color}, 0)`);
+            
+            ctx.fillStyle = grad;
+            ctx.beginPath();
+            ctx.arc(pos.x, pos.y, size, 0, Math.PI*2);
+            ctx.fill();
+        });
+
+        // Draw Core "Cloud" (The bulk density)
+        // This makes it look like a solid shape, not just points
+        const cloudSize = 90;
+        const drawCloud = (x, y, color) => {
+            const grad = ctx.createRadialGradient(x, y, 10, x, y, cloudSize);
+            grad.addColorStop(0, `rgba(${color}, 0.4)`);
+            grad.addColorStop(1, `rgba(${color}, 0)`);
+            ctx.fillStyle = grad;
+            ctx.beginPath(); ctx.arc(x, y, cloudSize, 0, Math.PI*2); ctx.fill();
+        };
+
+        drawCloud(atomL_x, cy, CONFIG.colors.blue);
+        drawCloud(atomR_x, cy, CONFIG.colors.blue);
+        
+        // If bonded, add extra density in the middle
+        if (CONFIG.distance < 2.0) {
+            const midX = (atomL_x + atomR_x) / 2;
+            // Sigma overlap
+            drawCloud(midX, cy, CONFIG.colors.blue);
+            
+            // Pi overlap (Purple glow)
+            if (CONFIG.bondType !== 'single') {
+                drawCloud(midX, cy - 50, CONFIG.colors.purple);
+                drawCloud(midX, cy + 50, CONFIG.colors.purple);
+            }
+        }
+
+        // 3. Draw Nuclei (Solid)
+        ctx.globalCompositeOperation = 'source-over'; // Reset blending
+        
+        const drawNucleus = (x, y, label) => {
+            // Glow
+            ctx.shadowBlur = 15; ctx.shadowColor = '#ff3333';
+            ctx.fillStyle = '#ff3333';
+            ctx.beginPath(); ctx.arc(x, y, CONFIG.nucleusRadius, 0, Math.PI*2); ctx.fill();
+            ctx.shadowBlur = 0;
+            // Label
+            ctx.fillStyle = 'white';
+            ctx.font = 'bold 10px Arial';
+            ctx.textAlign = 'center';
+            ctx.fillText(label, x, y+3); // Center vertically approx
+        };
+
+        let atomLabel = (CONFIG.bondType === 'single') ? "H" : (CONFIG.bondType === 'double' ? "O" : "N");
+        drawNucleus(atomL_x, cy, atomLabel);
+        drawNucleus(atomR_x, cy, atomLabel);
+
+        // Repulsion Effect (Red Flash)
+        if (CONFIG.distance < CONFIG.repulsionDist) {
+            ctx.strokeStyle = `rgba(255, 50, 50, ${Math.random()})`;
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.moveTo(atomL_x, cy);
+            ctx.lineTo(atomR_x, cy);
+            ctx.stroke();
+            
+            // Zigzag lines indicating force
+            ctx.beginPath();
+            ctx.moveTo(cx, cy-20); ctx.lineTo(cx-10, cy); ctx.lineTo(cx+10, cy); ctx.lineTo(cx, cy+20);
+            ctx.stroke();
+        }
+
+        // 4. Update Graph
+        drawEnergyGraph();
+        
+        requestAnimationFrame(draw);
+    }
+
+    // --- ENERGY GRAPH LOGIC ---
+    
+    function drawEnergyGraph() {
+        const w = graphCanvas.width;
+        const h = graphCanvas.height;
+        gCtx.clearRect(0, 0, w, h);
+
+        // Coordinate Mapping
+        // X: Distance 0.5 to 4.0 -> 10px to w-10px
+        // Y: Energy -10 to +10 -> h-10px to 10px
+        
+        const mapX = (r) => {
+            return 20 + (r - 0.5) / 3.5 * (w - 40);
+        };
+        const mapY = (e) => {
+            // Clamp e visual range roughly -1.5 to 1.5 (Lennard Jones unitless)
+            const y = h/2 - (e * (h/4)); 
+            return Math.max(10, Math.min(h-10, y));
+        };
+
+        // Lennard-Jones Potential Function: V = 4e * ((s/r)^12 - (s/r)^6)
+        // Simplified for visual demo: s = idealDist
+        const calcEnergy = (r) => {
+            const rm = CONFIG.idealDist; // r_min
+            // Using a softer curve for demo visualization
+            // E(r) = 1/r^12 - 2/r^6 is standard. 
+            // Let's use a normalized version where min is at r=idealDist
+            const x = rm / r;
+            return (Math.pow(x, 12) - 2 * Math.pow(x, 6));
+        };
+
+        // Draw Axes
+        gCtx.strokeStyle = '#666';
+        gCtx.lineWidth = 1;
+        gCtx.beginPath();
+        gCtx.moveTo(0, h/2); gCtx.lineTo(w, h/2); // Zero Energy Line
+        gCtx.stroke();
+
+        // Draw Curve
+        gCtx.strokeStyle = '#aaa';
+        gCtx.lineWidth = 2;
+        gCtx.beginPath();
+        for(let r = 0.6; r <= 4.0; r += 0.05) {
+            const e = calcEnergy(r);
+            const x = mapX(r);
+            const y = mapY(e);
+            if (r===0.6) gCtx.moveTo(x, y);
+            else gCtx.lineTo(x, y);
+        }
+        gCtx.stroke();
+
+        // Draw Current Position Dot
+        const curE = calcEnergy(CONFIG.distance);
+        const cx = mapX(CONFIG.distance);
+        const cy = mapY(curE);
+
+        // Color based on state
+        let dotColor = '#fff';
+        let statusText = "Neutral";
+        let statusBg = "#555";
+
+        if (CONFIG.distance > 2.5) {
+            dotColor = '#aaa'; statusText = "Separated"; statusBg = "#333";
+        } else if (Math.abs(CONFIG.distance - CONFIG.idealDist) < 0.2) {
+            dotColor = '#00ff88'; statusText = "STABLE BOND"; statusBg = "#005522";
+        } else if (CONFIG.distance < CONFIG.repulsionDist) {
+            dotColor = '#ff3333'; statusText = "REPULSION"; statusBg = "#550000";
+        } else {
+            dotColor = '#00f3ff'; statusText = "Attraction"; statusBg = "#003355";
+        }
+
+        // Update Status Tag
+        const tag = document.getElementById('energy-status');
+        tag.innerText = statusText;
+        tag.style.background = statusBg;
+        tag.style.color = dotColor;
+
+        gCtx.fillStyle = dotColor;
+        gCtx.shadowBlur = 10; gCtx.shadowColor = dotColor;
+        gCtx.beginPath();
+        gCtx.arc(cx, cy, 5, 0, Math.PI*2);
+        gCtx.fill();
+        gCtx.shadowBlur = 0;
+        
+        // Guide Line
+        gCtx.strokeStyle = dotColor;
+        gCtx.setLineDash([2, 4]);
+        gCtx.beginPath(); gCtx.moveTo(cx, cy); gCtx.lineTo(cx, h); gCtx.stroke();
+        gCtx.setLineDash([]);
+    }
+
+    // --- CONTROLS ---
+
+    function setBondType(type) {
+        CONFIG.bondType = type;
+        
+        // Update UI
+        document.querySelectorAll('.bond-btn').forEach(b => b.classList.remove('active'));
+        event.target.classList.add('active');
+
+        // Adjust Ideal Distance slightly for realism (Triples are shorter)
+        if (type === 'single') CONFIG.idealDist = 1.4;
+        if (type === 'double') CONFIG.idealDist = 1.2;
+        if (type === 'triple') CONFIG.idealDist = 1.1;
+
+        // Reset particles to get new orbital assignments
+        particles.forEach(p => p.reset());
+    }
+
+    const slider = document.getElementById('dist-slider');
+    slider.addEventListener('input', (e) => {
+        CONFIG.distance = parseFloat(e.target.value);
+        document.getElementById('dist-val').innerText = CONFIG.distance.toFixed(2) + " Å";
+    });
+
+    // Resize
+    window.addEventListener('resize', () => {
+        width = canvas.width = canvas.parentElement.clientWidth;
+        height = canvas.height = canvas.parentElement.clientHeight;
+        
+        // Graph resize
+        graphCanvas.width = graphCanvas.parentElement.clientWidth;
+        graphCanvas.height = graphCanvas.parentElement.clientHeight;
+    });
+    // Trigger initial resize
+    window.dispatchEvent(new Event('resize'));
+
+    // Start
+    draw();
+
+</script>
+</body>
+</html>
+```

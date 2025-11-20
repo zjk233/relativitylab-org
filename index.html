@@ -1,0 +1,176 @@
+<!DOCTYPE html>  
+<html lang="en">  
+<head>  
+    <meta charset="UTF-8">  
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">  
+    <title>RelativityLab - Visualizing Physics</title>  
+    <!-- CSS is injected by layout.js -->  
+</head>  
+<body class="min-h-screen flex flex-col relative">  
+  
+    <!--   
+      Main Content Area   
+      Added padding-top (pt-24) to account for the fixed header   
+      and padding-bottom (pb-20) for the fixed footer.  
+    -->  
+    <main class="flex-grow z-10 px-4 w-full max-w-6xl mx-auto pt-32 pb-24 text-center">  
+          
+        <!-- Decorative Glow -->  
+        <div class="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-blue-500/15 rounded-full blur-[120px] -z-10 pointer-events-none"></div>  
+  
+        <!-- Hero Section -->  
+        <h1 class="text-5xl md:text-7xl font-bold text-transparent bg-clip-text bg-gradient-to-b from-white to-white/40 mb-6 tracking-tight">  
+            Relativity Lab  
+        </h1>  
+          
+        <p class="text-lg md:text-xl text-gray-400 mb-12 leading-relaxed max-w-3xl mx-auto">  
+            STEM exploration of universal laws through visualization. From voxel-style mechanical dynamics to spacetime curvature in general relativity. Continuously updated.  
+        </p>  
+  
+        <!-- Demo Grid -->  
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 text-left">  
+              
+            <!-- 1. Newton's First Law -->  
+            <a href="./demo-html/Newton-First-Law.html" class="demo-card">  
+                <div class="icon">🍎</div>  
+                <div class="text">  
+                    <h3>Newton's First Law</h3>  
+                    <p>Inertia & Friction Simulation</p>  
+                </div>  
+            </a>  
+  
+            <!-- 2. Gravity Well -->  
+            <a href="./demo-html/Gravity-Well.html" class="demo-card">  
+                <div class="icon">🪐</div>  
+                <div class="text">  
+                    <h3>Gravity Well</h3>  
+                    <p>General Relativity Spacetime Curvature</p>  
+                </div>  
+            </a>  
+  
+            <!-- 3. Wave Interference -->  
+            <a href="./demo-html/Wave-Interference.html" class="demo-card">  
+                <div class="icon">🌊</div>  
+                <div class="text">  
+                    <h3>Wave Interference</h3>  
+                    <p>Double Slit & Superposition</p>  
+                </div>  
+            </a>  
+  
+            <!-- 4. Brownian Motion -->  
+            <a href="./demo-html/Brownian-Motion.html" class="demo-card">  
+                <div class="icon">🔬</div>  
+                <div class="text">  
+                    <h3>Brownian Motion</h3>  
+                    <p>Random Particle Dynamics</p>  
+                </div>  
+            </a>  
+  
+            <!-- 5. Covalent Bond -->  
+            <a href="./demo-html/Covalent-Bond-Formation.html" class="demo-card">  
+                <div class="icon">⚛️</div>  
+                <div class="text">  
+                    <h3>Covalent Bonding</h3>  
+                    <p>Electron Sharing Animation</p>  
+                </div>  
+            </a>  
+  
+            <!-- 6. Acid-Base Neutralization -->  
+            <a href="./demo-html/Neutralization.html" class="demo-card">  
+                <div class="icon">🧪</div>  
+                <div class="text">  
+                    <h3>Neutralization</h3>  
+                    <p>Acid-Base Ion Exchange</p>  
+                </div>  
+            </a>  
+  
+            <!-- 7. Electromagnetic Induction -->  
+            <a href="./demo-html/Electromagnetic-Induction.html" class="demo-card">  
+                <div class="icon">⚡</div>  
+                <div class="text">  
+                    <h3>EM Induction</h3>  
+                    <p>Magnetic Fields & Current</p>  
+                </div>  
+            </a>  
+  
+            <!-- 8. Central Limit Theorem -->  
+            <a href="./demo-html/Central-Limit-Theorem.html" class="demo-card">  
+                <div class="icon">📊</div>  
+                <div class="text">  
+                    <h3>Central Limit Theorem</h3>  
+                    <p>Probability & Statistics</p>  
+                </div>  
+            </a>  
+  
+            <!-- 9. Approximating Pi -->  
+            <a href="./demo-html/Approximating-pi.html" class="demo-card">  
+                <div class="icon">🥧</div>  
+                <div class="text">  
+                    <h3>Approximating Pi</h3>  
+                    <p>Monte Carlo Simulation</p>  
+                </div>  
+            </a>  
+  
+            <!-- 10. Pythagorean Theorem -->  
+            <a href="./demo-html/Pythagorean-Theorem.html" class="demo-card">  
+                <div class="icon">📐</div>  
+                <div class="text">  
+                    <h3>Pythagorean Theorem</h3>  
+                    <p>Visual Geometric Proof</p>  
+                </div>  
+            </a>  
+  
+            <!-- 11. Voxel Eagle -->  
+            <a href="./demo-html/eagle.html" class="demo-card">  
+                <div class="icon">🦅</div>  
+                <div class="text">  
+                    <h3>Voxel Eagle</h3>  
+                    <p>Voxel Physics Demo</p>  
+                </div>  
+            </a>  
+  
+        </div>  
+    </main>  
+  
+    <!-- Style for the cards (injected here for simplicity, builds on Tailwind) -->  
+    <style>  
+        .demo-card {  
+            display: flex;  
+            align-items: center;  
+            gap: 1rem;  
+            padding: 1.25rem;  
+            background-color: rgba(255, 255, 255, 0.03);  
+            border: 1px solid rgba(255, 255, 255, 0.1);  
+            border-radius: 0.75rem;  
+            transition: all 0.3s ease;  
+            backdrop-filter: blur(4px);  
+            text-decoration: none;  
+        }  
+        .demo-card:hover {  
+            background-color: rgba(255, 255, 255, 0.08);  
+            transform: translateY(-2px);  
+            border-color: rgba(56, 189, 248, 0.5); /* Accent color border */  
+            box-shadow: 0 4px 20px rgba(0,0,0,0.3);  
+        }  
+        .demo-card .icon {  
+            font-size: 2rem;  
+            min-width: 3rem;  
+            text-align: center;  
+        }  
+        .demo-card .text h3 {  
+            color: white;  
+            font-weight: 600;  
+            font-size: 1.1rem;  
+            margin-bottom: 0.2rem;  
+        }  
+        .demo-card .text p {  
+            color: #94a3b8;  
+            font-size: 0.85rem;  
+            margin: 0;  
+        }  
+    </style>  
+  
+    <!-- Import Layout Script -->  
+    <script src="layout.js"></script>  
+</body>  
+</html>  

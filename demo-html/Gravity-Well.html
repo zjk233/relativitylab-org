@@ -1,0 +1,411 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gravity Well - General Relativity Demo</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <style>
+        :root {
+            --bg: #000000;
+            --panel: rgba(10, 15, 20, 0.85);
+            --grid-color: #00f3ff; /* Neon Cyan */
+            --sun-color: #ffaa00;
+            --text: #e0e0e0;
+            --glass: backdrop-filter: blur(10px);
+        }
+
+        body {
+            margin: 0;
+            overflow: hidden;
+            background-color: var(--bg);
+            font-family: 'Segoe UI', Roboto, sans-serif;
+            color: var(--text);
+        }
+
+        #canvas-container { width: 100vw; height: 100vh; display: block; }
+
+        /* UI Overlay */
+        #ui-layer {
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 100%;
+            pointer-events: none;
+            display: flex;
+            flex-direction: column;
+            padding: 20px;
+            box-sizing: border-box;
+        }
+
+        /* Header */
+        header {
+            pointer-events: auto;
+            margin-bottom: auto;
+        }
+        h1 { 
+            margin: 0; font-weight: 800; font-size: 28px; letter-spacing: 1px; 
+            text-transform: uppercase; 
+            background: linear-gradient(90deg, var(--grid-color), #fff); 
+            -webkit-background-clip: text; -webkit-text-fill-color: transparent; 
+            text-shadow: 0 0 20px rgba(0, 243, 255, 0.3);
+        }
+        h2 { margin: 5px 0 0 0; font-size: 14px; color: #888; font-weight: 400; max-width: 400px; }
+
+        /* Control Panel */
+        #controls {
+            pointer-events: auto;
+            align-self: flex-end;
+            width: 300px;
+            background: var(--panel);
+            border: 1px solid rgba(255,255,255,0.15);
+            border-radius: 12px;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            box-shadow: 0 0 30px rgba(0,0,0,0.8);
+            var(--glass);
+        }
+
+        .control-group { display: flex; flex-direction: column; gap: 8px; }
+        label { font-size: 12px; text-transform: uppercase; color: #aaa; font-weight: 700; display: flex; justify-content: space-between; }
+        .val { color: var(--grid-color); font-family: monospace; }
+
+        /* Slider Styling */
+        input[type=range] {
+            width: 100%; -webkit-appearance: none; background: transparent;
+        }
+        input[type=range]::-webkit-slider-thumb {
+            -webkit-appearance: none; height: 16px; width: 16px;
+            border-radius: 50%; background: var(--sun-color);
+            cursor: pointer; margin-top: -6px;
+            box-shadow: 0 0 10px var(--sun-color);
+        }
+        input[type=range]::-webkit-slider-runnable-track {
+            width: 100%; height: 4px; background: #333; border-radius: 2px;
+        }
+
+        /* Buttons */
+        .btn-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+        button {
+            background: rgba(255,255,255,0.1);
+            border: 1px solid rgba(255,255,255,0.2);
+            color: #fff;
+            padding: 10px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: 600;
+            font-size: 11px;
+            text-transform: uppercase;
+            transition: all 0.2s;
+        }
+        button:hover { background: var(--grid-color); color: #000; border-color: var(--grid-color); }
+        
+        /* 3D Labels */
+        .label-3d {
+            position: absolute;
+            color: rgba(255,255,255,0.6);
+            font-size: 10px;
+            font-family: monospace;
+            pointer-events: none;
+            user-select: none;
+        }
+
+    </style>
+</head>
+<body>
+
+    <div id="canvas-container"></div>
+
+    <div id="ui-layer">
+        <header>
+            <h1>Gravity Well</h1>
+            <h2>Visualizing how Mass curves Spacetime (General Relativity)</h2>
+        </header>
+
+        <div id="controls">
+            <div class="control-group">
+                <label>
+                    Central Mass (Sun)
+                    <span id="mass-val" class="val">1.0x</span>
+                </label>
+                <input type="range" id="mass-slider" min="0" max="3.0" step="0.1" value="1.0">
+            </div>
+
+            <div style="height:1px; background:rgba(255,255,255,0.1); margin: 5px 0;"></div>
+
+            <label>Launch Object</label>
+            <div class="btn-grid">
+                <button onclick="spawnPlanet('orbit')">⚪ Circular Orbit</button>
+                <button onclick="spawnPlanet('ellipse')">🥚 Elliptical Orbit</button>
+                <button onclick="spawnPlanet('comet')">☄️ Hyperbolic (Escape)</button>
+                <button onclick="resetSim()" style="border-color: #ff3333; color:#ff8888;">❌ Clear All</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // --- CONFIGURATION ---
+        const CONFIG = {
+            gridSize: 80,
+            gridDivisions: 60,
+            G: 0.5, // Gravitational Constant (Tweaked for visual scale)
+            dt: 0.1, // Time step
+            trailLength: 150
+        };
+
+        const STATE = {
+            sunMass: 1000,
+            planets: []
+        };
+
+        // --- THREE.JS SETUP ---
+        const container = document.getElementById('canvas-container');
+        const scene = new THREE.Scene();
+        scene.background = new THREE.Color(0x000000);
+        // Fog gives depth perception
+        scene.fog = new THREE.FogExp2(0x000000, 0.015);
+
+        const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 1000);
+        camera.position.set(0, 35, 50);
+        camera.lookAt(0, -5, 0);
+
+        const renderer = new THREE.WebGLRenderer({ antialias: true });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        container.appendChild(renderer.domElement);
+
+        // Lights
+        const ambientLight = new THREE.AmbientLight(0x404040);
+        scene.add(ambientLight);
+        
+        // Sun Light (Point light from center)
+        const sunLight = new THREE.PointLight(0xffaa00, 2, 100);
+        scene.add(sunLight);
+
+        // --- OBJECTS ---
+
+        // 1. The Sun (Central Mass)
+        const sunGeo = new THREE.SphereGeometry(2, 32, 32);
+        const sunMat = new THREE.MeshBasicMaterial({ 
+            color: 0xffaa00,
+            // Add a glow effect using blending
+        });
+        const sunMesh = new THREE.Mesh(sunGeo, sunMat);
+        scene.add(sunMesh);
+        
+        // Sun Glow Halo
+        const glowGeo = new THREE.SphereGeometry(3.5, 32, 32);
+        const glowMat = new THREE.MeshBasicMaterial({ color: 0xff4400, transparent: true, opacity: 0.3 });
+        const sunGlow = new THREE.Mesh(glowGeo, glowMat);
+        scene.add(sunGlow);
+
+
+        // 2. The Gravity Well Grid (Wireframe Plane)
+        // We use PlaneBufferGeometry so we can manipulate vertices easily
+        const planeGeo = new THREE.PlaneGeometry(CONFIG.gridSize, CONFIG.gridSize, CONFIG.gridDivisions, CONFIG.gridDivisions);
+        // Rotate to lie flat on XZ plane initially
+        planeGeo.rotateX(-Math.PI / 2);
+        
+        const planeMat = new THREE.MeshBasicMaterial({ 
+            color: 0x00f3ff, 
+            wireframe: true,
+            transparent: true,
+            opacity: 0.3
+        });
+        const gridMesh = new THREE.Mesh(planeGeo, planeMat);
+        scene.add(gridMesh);
+
+        // Store original positions to calculate deformation from
+        const originalPositions = planeGeo.attributes.position.array.slice();
+
+        // 3. Starfield
+        const starsGeo = new THREE.BufferGeometry();
+        const starsCount = 2000;
+        const posArray = new Float32Array(starsCount * 3);
+        for(let i = 0; i < starsCount * 3; i++) {
+            posArray[i] = (Math.random() - 0.5) * 300;
+        }
+        starsGeo.setAttribute('position', new THREE.BufferAttribute(posArray, 3));
+        const starsMat = new THREE.PointsMaterial({ size: 0.3, color: 0xffffff, opacity: 0.6, transparent: true });
+        const starField = new THREE.Points(starsGeo, starsMat);
+        scene.add(starField);
+
+
+        // --- PHYSICS FUNCTIONS ---
+
+        function getGravityWellDepth(x, z, mass) {
+            // Formula for visual depth: z = -M / distance
+            // We add a small constant to distance to prevent infinity at center
+            const dist = Math.sqrt(x*x + z*z);
+            // Max depth clamp
+            const depth = - (mass * 1.5) / (dist + 2); 
+            return depth;
+        }
+
+        function updateGrid() {
+            const positions = gridMesh.geometry.attributes.position.array;
+            const count = positions.length / 3;
+
+            for (let i = 0; i < count; i++) {
+                const x = originalPositions[i * 3];
+                const z = originalPositions[i * 3 + 2];
+                
+                // Calculate new Y (Up/Down) based on gravity well formula
+                // Note: In Three.js geometry, since we rotated, Y is the vertical axis.
+                // Wait, we rotated the geometry, but the attribute array is relative to local space.
+                // Let's just manipulate the Y coordinate of the vertices.
+                
+                const y = getGravityWellDepth(x, z, STATE.sunMass);
+                positions[i * 3 + 1] = y;
+            }
+            gridMesh.geometry.attributes.position.needsUpdate = true;
+            
+            // Update Sun vertical position slightly to sit in the well
+            // Actually, sun stays at 0,0,0 physically, but visually we might sink it? 
+            // Let's keep sun at 0,0,0 and let the grid dip below it.
+        }
+
+        function spawnPlanet(type) {
+            const planetGeo = new THREE.SphereGeometry(0.8, 16, 16);
+            const planetMat = new THREE.MeshPhongMaterial({ color: 0xffffff, shininess: 100 });
+            const mesh = new THREE.Mesh(planetGeo, planetMat);
+            
+            // Initial Physics State
+            // Place it on the right side
+            const startX = 25;
+            mesh.position.set(startX, 0, 0);
+            scene.add(mesh);
+
+            // Velocity Calculation
+            const r = startX;
+            // Circular Velocity Formula: v = sqrt(GM/r)
+            const vCirc = Math.sqrt((CONFIG.G * STATE.sunMass) / r);
+            
+            let vel = new THREE.Vector3(0, 0, 0);
+
+            if (type === 'orbit') {
+                vel.set(0, 0, vCirc); // Tangential
+            } else if (type === 'ellipse') {
+                vel.set(0, 0, vCirc * 0.7); // Slower = falls in then speeds up
+            } else if (type === 'comet') {
+                vel.set(-0.2, 0, vCirc * 1.4); // Faster & inward = Hyperbolic
+            }
+
+            // Trail Setup
+            const trailGeo = new THREE.BufferGeometry();
+            // Pre-allocate trail points
+            const trailPos = new Float32Array(CONFIG.trailLength * 3);
+            trailGeo.setAttribute('position', new THREE.BufferAttribute(trailPos, 3));
+            const trailMat = new THREE.LineBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.5 });
+            const trailLine = new THREE.Line(trailGeo, trailMat);
+            scene.add(trailLine);
+
+            STATE.planets.push({
+                mesh: mesh,
+                trail: trailLine,
+                trailIdx: 0,
+                pos: new THREE.Vector3(startX, 0, 0),
+                vel: vel,
+                active: true
+            });
+        }
+
+        function updatePhysics() {
+            STATE.planets.forEach((p, index) => {
+                if (!p.active) return;
+
+                // 1. Gravity Calculation
+                const distVec = new THREE.Vector3().copy(p.pos).sub(new THREE.Vector3(0,0,0)); // Sun is at 0,0,0
+                const r = distVec.length();
+
+                // Collision check
+                if (r < 2.5) { // Hit the sun
+                    scene.remove(p.mesh);
+                    scene.remove(p.trail);
+                    p.active = false;
+                    return;
+                }
+
+                // F = G * M / r^2
+                const forceMag = (CONFIG.G * STATE.sunMass) / (r * r);
+                const forceVec = distVec.normalize().multiplyScalar(-forceMag); // Inward force
+
+                // Symplectic Euler Integration (Stable orbits)
+                p.vel.add(forceVec.multiplyScalar(CONFIG.dt));
+                p.pos.add(p.vel.clone().multiplyScalar(CONFIG.dt));
+
+                // 2. Visual Update
+                // We lock the visual Y position to the gravity well depth
+                // This makes it look like it's rolling on the grid
+                const visualY = getGravityWellDepth(p.pos.x, p.pos.z, STATE.sunMass);
+                p.mesh.position.set(p.pos.x, visualY + 0.8, p.pos.z); // +0.8 radius offset
+
+                // 3. Trail Update
+                const positions = p.trail.geometry.attributes.position.array;
+                // Shift array
+                for (let i = (CONFIG.trailLength - 1) * 3; i > 2; i -= 3) {
+                    positions[i] = positions[i - 3];
+                    positions[i + 1] = positions[i - 2];
+                    positions[i + 2] = positions[i - 1];
+                }
+                // Set new head
+                positions[0] = p.mesh.position.x;
+                positions[1] = p.mesh.position.y;
+                positions[2] = p.mesh.position.z;
+                p.trail.geometry.attributes.position.needsUpdate = true;
+            });
+        }
+
+        function resetSim() {
+            STATE.planets.forEach(p => {
+                scene.remove(p.mesh);
+                scene.remove(p.trail);
+            });
+            STATE.planets = [];
+        }
+
+        // --- INPUT HANDLERS ---
+        const slider = document.getElementById('mass-slider');
+        slider.addEventListener('input', (e) => {
+            const val = parseFloat(e.target.value);
+            STATE.sunMass = val * 1000; // Scale for physics
+            
+            // Visual feedback scale
+            const scale = 0.5 + val * 0.5;
+            sunMesh.scale.set(scale, scale, scale);
+            sunGlow.scale.set(scale, scale, scale);
+            
+            document.getElementById('mass-val').innerText = val.toFixed(1) + "x";
+        });
+
+        // --- MAIN LOOP ---
+        function animate() {
+            requestAnimationFrame(animate);
+
+            updateGrid();
+            updatePhysics();
+
+            // Rotate Starfield slowly
+            starField.rotation.y += 0.0005;
+
+            // Rotate Sun
+            sunMesh.rotation.y -= 0.005;
+
+            renderer.render(scene, camera);
+        }
+
+        // Window Resize
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
+
+        // Initialize with one planet
+        STATE.sunMass = 1000; // Initial mass
+        spawnPlanet('orbit');
+        animate();
+
+    </script>
+</body>
+</html>
+```

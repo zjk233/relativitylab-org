@@ -1,0 +1,513 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pythagorean Theorem - Interactive Geometry</title>
+    <style>
+        :root {
+            /* Dark Theme (Default) */
+            --bg-color: #0f172a;
+            --text-primary: #f8fafc;
+            --text-secondary: #94a3b8;
+            --card-bg: rgba(30, 41, 59, 0.7);
+            --border-color: #334155;
+            --accent-pink: #ec4899;
+            --accent-green: #22c55e;
+            --accent-blue: #38bdf8;
+        }
+
+        body.light-theme {
+            /* Light Theme */
+            --bg-color: #f1f5f9;
+            --text-primary: #1e293b;
+            --text-secondary: #64748b;
+            --card-bg: rgba(255, 255, 255, 0.8);
+            --border-color: #cbd5e1;
+            --accent-pink: #db2777;
+            --accent-green: #16a34a;
+            --accent-blue: #0284c7;
+        }
+
+        body {
+            margin: 0;
+            overflow: hidden;
+            background-color: var(--bg-color);
+            font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            color: var(--text-primary);
+            transition: background-color 0.5s, color 0.5s;
+        }
+
+        /* UI Overlay */
+        #ui-layer {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            padding: 20px;
+            box-sizing: border-box;
+        }
+
+        header {
+            pointer-events: auto;
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+        }
+
+        .title-block h1 { margin: 0; font-size: 28px; font-weight: 800; letter-spacing: -1px; }
+        .title-block h2 { margin: 5px 0 0 0; font-size: 14px; color: var(--text-secondary); font-weight: 400; }
+
+        button {
+            pointer-events: auto;
+            background: var(--card-bg);
+            border: 1px solid var(--border-color);
+            color: var(--text-primary);
+            padding: 10px 20px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 600;
+            backdrop-filter: blur(10px);
+            transition: all 0.2s;
+        }
+        button:hover { background: var(--border-color); transform: translateY(-2px); }
+
+        /* Stats Panel (Right Side) */
+        .stats-panel {
+            position: absolute;
+            top: 50%;
+            right: 40px;
+            transform: translateY(-50%);
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        .stat-card {
+            background: var(--card-bg);
+            border: 1px solid var(--border-color);
+            padding: 20px;
+            border-radius: 16px;
+            width: 220px;
+            backdrop-filter: blur(10px);
+            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+            transition: transform 0.2s;
+        }
+
+        .stat-header { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+        .color-dot { width: 12px; height: 12px; border-radius: 50%; }
+        
+        .stat-label { font-size: 12px; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 1px; font-weight: 700;}
+        .stat-value { font-size: 32px; font-weight: 800; margin: 5px 0; font-variant-numeric: tabular-nums; }
+        .stat-sub { font-size: 14px; opacity: 0.7; font-family: monospace; }
+
+        /* Colors specific classes */
+        .text-pink { color: var(--accent-pink); }
+        .text-green { color: var(--accent-green); }
+        .text-blue { color: var(--accent-blue); }
+        .bg-pink { background: var(--accent-pink); }
+        .bg-green { background: var(--accent-green); }
+        .bg-blue { background: var(--accent-blue); }
+
+        /* Equation Main Display */
+        .equation-display {
+            position: absolute;
+            bottom: 40px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: var(--card-bg);
+            padding: 15px 30px;
+            border-radius: 50px;
+            border: 1px solid var(--border-color);
+            backdrop-filter: blur(10px);
+            font-size: 24px;
+            font-weight: bold;
+            display: flex;
+            gap: 15px;
+            align-items: center;
+        }
+
+        .guide-text {
+            position: absolute;
+            bottom: 110px;
+            left: 50%;
+            transform: translateX(-50%);
+            color: var(--text-secondary);
+            font-size: 14px;
+            font-style: italic;
+            opacity: 0.8;
+        }
+
+    </style>
+</head>
+<body>
+
+    <canvas id="world"></canvas>
+
+    <div id="ui-layer">
+        <header>
+            <div class="title-block">
+                <h1>Pythagorean Theorem</h1>
+                <h2>Interactive Geometric Proof</h2>
+            </div>
+            <button id="theme-btn">Switch Theme</button>
+        </header>
+
+        <div class="stats-panel">
+            <!-- Square A -->
+            <div class="stat-card" style="border-left: 4px solid var(--accent-pink);">
+                <div class="stat-header">
+                    <div class="color-dot bg-pink"></div>
+                    <span class="stat-label">Side A (Leg)</span>
+                </div>
+                <div class="stat-sub">Area calculation</div>
+                <div class="stat-value text-pink" id="val-a">0</div>
+                <div class="stat-sub">Side length: <span id="len-a">0</span></div>
+            </div>
+
+            <!-- Square B -->
+            <div class="stat-card" style="border-left: 4px solid var(--accent-green);">
+                <div class="stat-header">
+                    <div class="color-dot bg-green"></div>
+                    <span class="stat-label">Side B (Leg)</span>
+                </div>
+                <div class="stat-sub">Area calculation</div>
+                <div class="stat-value text-green" id="val-b">0</div>
+                <div class="stat-sub">Side length: <span id="len-b">0</span></div>
+            </div>
+
+            <!-- Square C -->
+            <div class="stat-card" style="border-left: 4px solid var(--accent-blue);">
+                <div class="stat-header">
+                    <div class="color-dot bg-blue"></div>
+                    <span class="stat-label">Side C (Hypotenuse)</span>
+                </div>
+                <div class="stat-sub">Total Area (A² + B²)</div>
+                <div class="stat-value text-blue" id="val-c">0</div>
+                <div class="stat-sub">Side length: <span id="len-c">0</span></div>
+            </div>
+        </div>
+
+        <div class="guide-text">Drag the colored dots to resize the triangle</div>
+
+        <div class="equation-display">
+            <span class="text-pink" id="eq-a">0</span>
+            <span>+</span>
+            <span class="text-green" id="eq-b">0</span>
+            <span>=</span>
+            <span class="text-blue" id="eq-c">0</span>
+        </div>
+    </div>
+
+    <script>
+        // --- STATE & CONFIG ---
+        const canvas = document.getElementById('world');
+        const ctx = canvas.getContext('2d');
+        
+        const STATE = {
+            theme: 'dark',
+            a: 150, // Initial length A
+            b: 200, // Initial length B
+            cx: 0,  // Center X (calculated on resize)
+            cy: 0,  // Center Y (calculated on resize)
+            isDragging: null, // 'A' or 'B'
+            gridOffset: 0 // For animation
+        };
+
+        // Theme Colors (JS mirror of CSS variables)
+        const COLORS = {
+            dark: { grid: '#1e293b', line: '#ffffff', fillA: 'rgba(236, 72, 153, 0.2)', strokeA: '#ec4899', fillB: 'rgba(34, 197, 94, 0.2)', strokeB: '#22c55e', fillC: 'rgba(56, 189, 248, 0.2)', strokeC: '#38bdf8' },
+            light: { grid: '#e2e8f0', line: '#1e293b', fillA: 'rgba(219, 39, 119, 0.15)', strokeA: '#db2777', fillB: 'rgba(22, 163, 74, 0.15)', strokeB: '#16a34a', fillC: 'rgba(2, 132, 199, 0.15)', strokeC: '#0284c7' }
+        };
+
+        // --- INITIALIZATION ---
+        function resize() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+            // Position triangle slightly to left to make room for UI
+            STATE.cx = canvas.width * 0.4; 
+            STATE.cy = canvas.height * 0.6;
+        }
+        window.addEventListener('resize', resize);
+        resize();
+
+        // --- DRAWING LOGIC ---
+        function drawGrid(width, height, step, color) {
+            ctx.beginPath();
+            ctx.strokeStyle = color;
+            ctx.lineWidth = 1;
+            for (let x = 0; x < width; x += step) { ctx.moveTo(x, 0); ctx.lineTo(x, height); }
+            for (let y = 0; y < height; y += step) { ctx.moveTo(0, y); ctx.lineTo(width, y); }
+            ctx.stroke();
+        }
+
+        // Helper to draw internal moving grid for squares (Liquid effect)
+        function drawMovingGrid(w, h, color, speedX, speedY) {
+            ctx.save();
+            ctx.beginPath();
+            ctx.rect(0, 0, w, h);
+            ctx.clip(); // Clip inside the square
+
+            ctx.strokeStyle = color;
+            ctx.lineWidth = 1;
+            ctx.globalAlpha = 0.4;
+
+            const step = 20;
+            const offX = (STATE.gridOffset * speedX) % step;
+            const offY = (STATE.gridOffset * speedY) % step;
+
+            ctx.beginPath();
+            // Vertical lines
+            for (let x = -step + offX; x < w; x += step) {
+                ctx.moveTo(x, 0); ctx.lineTo(x, h);
+            }
+            // Horizontal lines
+            for (let y = -step + offY; y < h; y += step) {
+                ctx.moveTo(0, y); ctx.lineTo(w, y);
+            }
+            ctx.stroke();
+            ctx.restore();
+        }
+
+        function draw() {
+            const theme = COLORS[STATE.theme];
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            // 1. Background Grid
+            drawGrid(canvas.width, canvas.height, 50, theme.grid);
+
+            // Coordinates
+            // C is the Right Angle vertex
+            const C = { x: STATE.cx, y: STATE.cy };
+            // A extends Right
+            const A = { x: STATE.cx + STATE.a, y: STATE.cy };
+            // B extends Up
+            const B = { x: STATE.cx, y: STATE.cy - STATE.b };
+
+            // --- SQUARE A (Bottom) ---
+            ctx.save();
+            ctx.translate(C.x, C.y);
+            ctx.fillStyle = theme.fillA;
+            ctx.strokeStyle = theme.strokeA;
+            ctx.fillRect(0, 0, STATE.a, STATE.a);
+            drawMovingGrid(STATE.a, STATE.a, theme.strokeA, 0.5, 0.5); // Internal flow
+            ctx.strokeRect(0, 0, STATE.a, STATE.a);
+            
+            // Label A
+            ctx.fillStyle = theme.strokeA;
+            ctx.font = "bold 16px Arial";
+            ctx.fillText(`Area: ${Math.round(STATE.a**2)}`, STATE.a/2 - 30, STATE.a/2);
+            ctx.restore();
+
+
+            // --- SQUARE B (Left) ---
+            ctx.save();
+            ctx.translate(C.x - STATE.b, C.y - STATE.b);
+            ctx.fillStyle = theme.fillB;
+            ctx.strokeStyle = theme.strokeB;
+            ctx.fillRect(0, 0, STATE.b, STATE.b);
+            drawMovingGrid(STATE.b, STATE.b, theme.strokeB, -0.5, 0.2); // Internal flow
+            ctx.strokeRect(0, 0, STATE.b, STATE.b);
+
+            // Label B
+            ctx.fillStyle = theme.strokeB;
+            ctx.font = "bold 16px Arial";
+            ctx.fillText(`Area: ${Math.round(STATE.b**2)}`, STATE.b/2 - 30, STATE.b/2);
+            ctx.restore();
+
+
+            // --- SQUARE C (Hypotenuse) ---
+            const hyp = Math.hypot(STATE.a, STATE.b);
+            const angle = Math.atan2(STATE.b, STATE.a); // Angle of hypotenuse
+
+            ctx.save();
+            // Translate to Vertex B (Top)
+            ctx.translate(B.x, B.y);
+            // Rotate to align with hypotenuse. 
+            // Normal angle logic: we need to rotate perpendicular to the line A-B.
+            ctx.rotate(Math.atan2(A.y - B.y, A.x - B.x)); 
+            
+            ctx.fillStyle = theme.fillC;
+            ctx.strokeStyle = theme.strokeC;
+            // Draw rectangle "upwards" (negative y in local space) relative to the line
+            ctx.fillRect(0, -hyp, hyp, hyp);
+            
+            // We need to shift context to draw grid easily inside
+            ctx.translate(0, -hyp);
+            drawMovingGrid(hyp, hyp, theme.strokeC, 0.8, -0.3); // Internal flow
+            ctx.strokeRect(0, 0, hyp, hyp);
+
+            // Label C
+            ctx.fillStyle = theme.strokeC;
+            ctx.font = "bold 16px Arial";
+            ctx.save();
+            ctx.translate(hyp/2, hyp/2); // Center text
+            ctx.rotate(-Math.atan2(A.y - B.y, A.x - B.x)); // Un-rotate text for readability? Or keep aligned?
+            // Let's keep it simple and just draw text
+            ctx.fillText(`Area: ${Math.round(hyp**2)}`, -30, 0);
+            ctx.restore();
+
+            ctx.restore();
+
+
+            // --- TRIANGLE (The Core) ---
+            ctx.beginPath();
+            ctx.moveTo(C.x, C.y);
+            ctx.lineTo(A.x, A.y);
+            ctx.lineTo(B.x, B.y);
+            ctx.closePath();
+            ctx.fillStyle = STATE.theme === 'dark' ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.05)';
+            ctx.fill();
+            ctx.strokeStyle = theme.line;
+            ctx.lineWidth = 3;
+            ctx.stroke();
+
+            // Right Angle Marker
+            ctx.beginPath();
+            const m = 15;
+            ctx.strokeStyle = theme.line;
+            ctx.lineWidth = 2;
+            ctx.moveTo(C.x + m, C.y);
+            ctx.lineTo(C.x + m, C.y - m);
+            ctx.lineTo(C.x, C.y - m);
+            ctx.stroke();
+
+
+            // --- INTERACTION HANDLES ---
+            
+            // Handle A (Pink)
+            ctx.beginPath();
+            ctx.arc(A.x, A.y, 10, 0, Math.PI*2);
+            ctx.fillStyle = theme.strokeA;
+            ctx.fill();
+            ctx.lineWidth = 2;
+            ctx.strokeStyle = '#fff';
+            ctx.stroke();
+            // Ring effect if dragging
+            if(STATE.isDragging === 'A') {
+                ctx.beginPath();
+                ctx.arc(A.x, A.y, 15, 0, Math.PI*2);
+                ctx.strokeStyle = theme.strokeA;
+                ctx.stroke();
+            }
+
+            // Handle B (Green)
+            ctx.beginPath();
+            ctx.arc(B.x, B.y, 10, 0, Math.PI*2);
+            ctx.fillStyle = theme.strokeB;
+            ctx.fill();
+            ctx.strokeStyle = '#fff';
+            ctx.stroke();
+            if(STATE.isDragging === 'B') {
+                ctx.beginPath();
+                ctx.arc(B.x, B.y, 15, 0, Math.PI*2);
+                ctx.strokeStyle = theme.strokeB;
+                ctx.stroke();
+            }
+        }
+
+        // --- LOGIC & EVENTS ---
+        
+        function updateStats() {
+            const valA = Math.round(STATE.a);
+            const valB = Math.round(STATE.b);
+            const areaA = valA * valA;
+            const areaB = valB * valB;
+            const areaC = areaA + areaB;
+            const lenC = Math.sqrt(areaC).toFixed(1);
+
+            // DOM Updates
+            document.getElementById('val-a').innerText = areaA.toLocaleString();
+            document.getElementById('val-b').innerText = areaB.toLocaleString();
+            document.getElementById('val-c').innerText = areaC.toLocaleString();
+            
+            document.getElementById('len-a').innerText = valA;
+            document.getElementById('len-b').innerText = valB;
+            document.getElementById('len-c').innerText = lenC;
+
+            // Equation Bar
+            document.getElementById('eq-a').innerText = areaA;
+            document.getElementById('eq-b').innerText = areaB;
+            document.getElementById('eq-c').innerText = areaC;
+        }
+
+        function animate() {
+            STATE.gridOffset += 0.5; // Move grid pattern
+            draw();
+            requestAnimationFrame(animate);
+        }
+
+        // Mouse/Touch Interaction
+        function handleStart(x, y) {
+            const C = { x: STATE.cx, y: STATE.cy };
+            const A = { x: STATE.cx + STATE.a, y: STATE.cy };
+            const B = { x: STATE.cx, y: STATE.cy - STATE.b };
+            
+            const distA = Math.hypot(x - A.x, y - A.y);
+            const distB = Math.hypot(x - B.x, y - B.y);
+
+            if (distA < 25) STATE.isDragging = 'A';
+            else if (distB < 25) STATE.isDragging = 'B';
+        }
+
+        function handleMove(x, y) {
+            if (STATE.isDragging === 'A') {
+                // Limit length to keep on screen roughly
+                STATE.a = Math.max(50, Math.min(400, x - STATE.cx));
+                canvas.style.cursor = 'ew-resize';
+            } else if (STATE.isDragging === 'B') {
+                STATE.b = Math.max(50, Math.min(400, STATE.cy - y));
+                canvas.style.cursor = 'ns-resize';
+            } else {
+                // Hover logic
+                const A = { x: STATE.cx + STATE.a, y: STATE.cy };
+                const B = { x: STATE.cx, y: STATE.cy - STATE.b };
+                const distA = Math.hypot(x - A.x, y - A.y);
+                const distB = Math.hypot(x - B.x, y - B.y);
+                canvas.style.cursor = (distA < 25 || distB < 25) ? 'pointer' : 'default';
+            }
+            updateStats();
+        }
+
+        function handleEnd() {
+            STATE.isDragging = null;
+        }
+
+        // Event Listeners
+        canvas.addEventListener('mousedown', e => handleStart(e.clientX, e.clientY));
+        canvas.addEventListener('mousemove', e => handleMove(e.clientX, e.clientY));
+        window.addEventListener('mouseup', handleEnd);
+
+        // Touch Support
+        canvas.addEventListener('touchstart', e => {
+            e.preventDefault();
+            handleStart(e.touches[0].clientX, e.touches[0].clientY);
+        }, {passive: false});
+        canvas.addEventListener('touchmove', e => {
+            e.preventDefault();
+            handleMove(e.touches[0].clientX, e.touches[0].clientY);
+        }, {passive: false});
+        window.addEventListener('touchend', handleEnd);
+
+        // Theme Toggle
+        document.getElementById('theme-btn').addEventListener('click', () => {
+            if(STATE.theme === 'dark') {
+                STATE.theme = 'light';
+                document.body.classList.add('light-theme');
+            } else {
+                STATE.theme = 'dark';
+                document.body.classList.remove('light-theme');
+            }
+        });
+
+        // Init
+        updateStats();
+        animate();
+
+    </script>
+</body>
+</html>
+```

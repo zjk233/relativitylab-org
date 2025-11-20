@@ -1,0 +1,571 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Newton's First Law - Interactive Simulation</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <style>
+        :root {
+            --bg-color: #000;
+            --text-main: #fff;
+            --accent-blue: #38bdf8;
+            --accent-red: #f43f5e;
+            --accent-green: #22c55e;
+            --glass: rgba(20, 20, 35, 0.85);
+            --border: rgba(255, 255, 255, 0.15);
+        }
+
+        body { margin: 0; overflow: hidden; font-family: 'Segoe UI', Roboto, Helvetica, sans-serif; background: var(--bg-color); color: var(--text-main); }
+
+        #canvas-container { width: 100vw; height: 100vh; display: block; }
+
+        /* UI Overlay Layout */
+        #ui-layer {
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 100%;
+            pointer-events: none;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            padding: 20px;
+            box-sizing: border-box;
+        }
+
+        /* Header & Env Switcher */
+        header { pointer-events: auto; display: flex; flex-direction: column; gap: 10px; }
+        h1 { margin: 0; font-weight: 800; font-size: 24px; text-shadow: 0 0 10px rgba(56,189,248,0.6); }
+        h2 { margin: 0; font-size: 14px; color: #94a3b8; font-weight: 400; max-width: 500px; line-height: 1.4; }
+
+        .env-switch {
+            background: var(--glass);
+            border: 1px solid var(--border);
+            display: inline-flex;
+            border-radius: 8px;
+            overflow: hidden;
+            backdrop-filter: blur(10px);
+            width: fit-content;
+        }
+        .env-btn {
+            background: transparent;
+            border: none;
+            color: #aaa;
+            padding: 10px 20px;
+            cursor: pointer;
+            font-weight: 600;
+            font-size: 14px;
+            transition: all 0.3s;
+        }
+        .env-btn.active { background: var(--accent-blue); color: white; }
+        .env-btn:hover:not(.active) { background: rgba(255,255,255,0.1); }
+
+        /* Parameter Sliders (Left Side) */
+        .params-panel {
+            pointer-events: auto;
+            background: var(--glass);
+            border: 1px solid var(--border);
+            padding: 20px;
+            border-radius: 12px;
+            width: 280px;
+            backdrop-filter: blur(10px);
+            margin-top: 20px;
+        }
+        .param-row { margin-bottom: 15px; }
+        .param-row:last-child { margin-bottom: 0; }
+        .param-header { display: flex; justify-content: space-between; font-size: 14px; margin-bottom: 5px; font-weight: 600; color: #ddd; }
+        
+        input[type=range] {
+            width: 100%;
+            -webkit-appearance: none;
+            background: transparent;
+        }
+        input[type=range]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            height: 16px; width: 16px;
+            border-radius: 50%;
+            background: var(--accent-blue);
+            cursor: pointer;
+            margin-top: -6px;
+            box-shadow: 0 0 10px var(--accent-blue);
+        }
+        input[type=range]::-webkit-slider-runnable-track {
+            width: 100%; height: 4px;
+            cursor: pointer;
+            background: rgba(255,255,255,0.2);
+            border-radius: 2px;
+        }
+
+        /* Live Stats (Top Right) */
+        .stats-panel {
+            pointer-events: auto;
+            background: var(--glass);
+            border: 1px solid var(--border);
+            padding: 20px;
+            border-radius: 12px;
+            backdrop-filter: blur(10px);
+            width: 200px;
+            position: absolute;
+            top: 20px; right: 20px;
+        }
+        .stat-row { display: flex; justify-content: space-between; margin-bottom: 8px; font-size: 14px; }
+        .stat-label { color: #94a3b8; }
+        .stat-val { font-weight: bold; font-family: monospace; color: var(--accent-blue); }
+        
+        .friction-alert {
+            margin-top: 10px; font-size: 12px; color: var(--accent-red);
+            display: flex; align-items: center; gap: 6px;
+            opacity: 0; transition: opacity 0.3s; border-top: 1px solid rgba(255,255,255,0.1); padding-top:10px;
+        }
+        .visible { opacity: 1 !important; }
+
+        /* Bottom Controls */
+        .controls {
+            pointer-events: auto;
+            position: absolute;
+            bottom: 40px; left: 50%;
+            transform: translateX(-50%);
+            display: flex; gap: 20px; align-items: center;
+        }
+
+        .action-btn {
+            background: rgba(34, 197, 94, 0.15);
+            border: 1px solid var(--accent-green);
+            color: var(--accent-green);
+            padding: 15px 50px;
+            font-size: 18px;
+            border-radius: 50px;
+            cursor: pointer;
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            transition: all 0.2s;
+            backdrop-filter: blur(5px);
+            box-shadow: 0 0 20px rgba(34, 197, 94, 0.2);
+        }
+        .action-btn:hover { background: var(--accent-green); color: #000; transform: scale(1.05); box-shadow: 0 0 30px rgba(34, 197, 94, 0.6); }
+        .action-btn:active { transform: scale(0.95); }
+        .action-btn:disabled { opacity: 0.5; cursor: not-allowed; filter: grayscale(1); transform: none; }
+
+        .reset-btn {
+            background: var(--glass);
+            border: 1px solid var(--border);
+            color: white;
+            padding: 12px 24px;
+            border-radius: 30px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: background 0.2s;
+        }
+        .reset-btn:hover { background: rgba(255,255,255,0.25); }
+
+        /* 3D Labels */
+        .label-3d {
+            position: absolute;
+            color: white;
+            font-weight: bold;
+            text-shadow: 0 2px 4px #000;
+            pointer-events: none;
+            transform: translate(-50%, -50%);
+            opacity: 0;
+            transition: opacity 0.3s;
+            font-family: monospace;
+            font-size: 14px;
+            white-space: nowrap;
+        }
+    </style>
+</head>
+<body>
+
+    <div id="canvas-container"></div>
+
+    <div id="ui-layer">
+        <div style="pointer-events: none;">
+            <header>
+                <h1>Newton's First Law: Inertia</h1>
+                <h2>"An object stays in motion with the same speed and in the same direction unless acted upon by an unbalanced force."</h2>
+                
+                <div class="env-switch">
+                    <button class="env-btn active" id="btn-space" onclick="setEnv('space')">🌌 Space (No Friction)</button>
+                    <button class="env-btn" id="btn-earth" onclick="setEnv('earth')">🌍 Earth (Friction)</button>
+                </div>
+            </header>
+
+            <!-- Sliders -->
+            <div class="params-panel">
+                <div class="param-row">
+                    <div class="param-header">
+                        <span>Applied Force (Newton)</span>
+                        <span id="disp-force">10 N</span>
+                    </div>
+                    <input type="range" id="slider-force" min="1" max="50" value="15" oninput="updateConfig()">
+                </div>
+                <div class="param-row">
+                    <div class="param-header">
+                        <span>Surface Friction</span>
+                        <span id="disp-friction">Low</span>
+                    </div>
+                    <input type="range" id="slider-friction" min="1" max="100" value="20" oninput="updateConfig()">
+                </div>
+            </div>
+        </div>
+
+        <!-- Stats -->
+        <div class="stats-panel">
+            <div class="stat-row">
+                <span class="stat-label">Velocity:</span>
+                <span class="stat-val" id="vel-val">0.00 m/s</span>
+            </div>
+            <div class="stat-row">
+                <span class="stat-label">Distance:</span>
+                <span class="stat-val" id="dist-val">0.00 m</span>
+            </div>
+            <div class="stat-row">
+                <span class="stat-label">Acc:</span>
+                <span class="stat-val" id="acc-val">0.00</span>
+            </div>
+            <div class="friction-alert" id="fric-alert">
+                <div style="width:8px; height:8px; background:var(--accent-red); border-radius:50%; box-shadow: 0 0 5px var(--accent-red);"></div>
+                Friction Decelerating
+            </div>
+        </div>
+
+        <!-- Bottom Controls -->
+        <div class="controls">
+            <button class="reset-btn" onclick="resetSim()">↺ Reset</button>
+            <button class="action-btn" id="btn-push" onclick="applyForce()">💥 Push Object</button>
+        </div>
+    </div>
+
+    <!-- Floating Labels -->
+    <div id="force-label" class="label-3d" style="color: var(--accent-green); font-size: 18px;">F_push →</div>
+    <div id="friction-label" class="label-3d" style="color: var(--accent-red)">← F_friction</div>
+
+    <script>
+        // --- CONFIGURATION & STATE ---
+        const CONFIG = {
+            force: 0.5,       // Derived from slider
+            friction: 0.01,   // Derived from slider
+            spaceColor: 0x050508,
+            earthColor: 0x151515
+        };
+
+        const STATE = {
+            env: 'space', 
+            velocity: 0,
+            distance: 0,
+            isMoving: false,
+            ballPos: new THREE.Vector3(0, 2, 0)
+        };
+
+        // --- THREE.JS SETUP ---
+        const container = document.getElementById('canvas-container');
+        const scene = new THREE.Scene();
+        scene.background = new THREE.Color(CONFIG.spaceColor);
+        // Use Fog to hide the loading of distant objects
+        scene.fog = new THREE.Fog(CONFIG.spaceColor, 20, 150);
+
+        const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 1000);
+        // Initial camera position
+        camera.position.set(-10, 10, 30);
+        camera.lookAt(10, 0, 0);
+
+        const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.shadowMap.enabled = true;
+        renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+        container.appendChild(renderer.domElement);
+
+        // --- LIGHTING ---
+        const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
+        scene.add(ambientLight);
+
+        const dirLight = new THREE.DirectionalLight(0xffffff, 1.2);
+        dirLight.position.set(-20, 50, 20);
+        dirLight.castShadow = true;
+        dirLight.shadow.mapSize.width = 2048;
+        dirLight.shadow.mapSize.height = 2048;
+        dirLight.shadow.camera.left = -50;
+        dirLight.shadow.camera.right = 100; // Wide shadow area for movement
+        scene.add(dirLight);
+
+        // --- OBJECTS ---
+
+        // 1. The Physics Object (Ball)
+        const ballGroup = new THREE.Group(); // Use group to handle rotation independently
+        ballGroup.position.y = 2;
+        scene.add(ballGroup);
+
+        const ballGeo = new THREE.SphereGeometry(2, 64, 64);
+        const ballMat = new THREE.MeshStandardMaterial({ 
+            color: 0x38bdf8, 
+            roughness: 0.2, 
+            metalness: 0.8,
+            emissive: 0x002244
+        });
+        const ball = new THREE.Mesh(ballGeo, ballMat);
+        ball.castShadow = true;
+        ballGroup.add(ball);
+
+        // Add stripes to ball so rotation is visible
+        const stripeGeo = new THREE.TorusGeometry(2.01, 0.1, 16, 100);
+        const stripeMat = new THREE.MeshBasicMaterial({ color: 0xffffff });
+        const stripe1 = new THREE.Mesh(stripeGeo, stripeMat);
+        const stripe2 = new THREE.Mesh(stripeGeo, stripeMat);
+        stripe2.rotation.x = Math.PI / 2;
+        ball.add(stripe1);
+        ball.add(stripe2);
+
+        // 2. Earth Floor (Physical Floor)
+        const floorGeo = new THREE.PlaneGeometry(1000, 1000);
+        const floorMat = new THREE.MeshStandardMaterial({ 
+            color: 0x222222, 
+            roughness: 0.9, 
+            metalness: 0.1 
+        });
+        const earthFloor = new THREE.Mesh(floorGeo, floorMat);
+        earthFloor.rotation.x = -Math.PI / 2;
+        earthFloor.receiveShadow = true;
+        earthFloor.visible = false;
+        scene.add(earthFloor);
+
+        // Earth Grid
+        const earthGrid = new THREE.GridHelper(1000, 100, 0x666666, 0x333333);
+        earthGrid.visible = false;
+        scene.add(earthGrid);
+
+        // 3. Space "Virtual" Grid (To show movement in void)
+        const spaceGrid = new THREE.GridHelper(1000, 100, 0x00ffff, 0x004444);
+        spaceGrid.position.y = -0.1; // Slightly below 0
+        spaceGrid.visible = true;
+        scene.add(spaceGrid);
+
+        // 4. Space Distance Markers (Floating Cubes to show relative motion)
+        const markersGroup = new THREE.Group();
+        const markerGeo = new THREE.BoxGeometry(0.5, 4, 0.5);
+        const markerMat = new THREE.MeshBasicMaterial({ color: 0x38bdf8, transparent: true, opacity: 0.5 });
+        
+        for(let i=0; i<50; i++) {
+            const m = new THREE.Mesh(markerGeo, markerMat);
+            m.position.x = i * 20; // Every 20 meters
+            m.position.z = -10;
+            m.position.y = 2;
+            markersGroup.add(m);
+            
+            // Add another row on the other side
+            const m2 = m.clone();
+            m2.position.z = 10;
+            markersGroup.add(m2);
+        }
+        scene.add(markersGroup);
+
+        // 5. Starfield
+        const starsGeo = new THREE.BufferGeometry();
+        const starsCount = 3000;
+        const posArray = new Float32Array(starsCount * 3);
+        for(let i = 0; i < starsCount * 3; i++) {
+            posArray[i] = (Math.random() - 0.5) * 600;
+        }
+        starsGeo.setAttribute('position', new THREE.BufferAttribute(posArray, 3));
+        const starsMat = new THREE.PointsMaterial({ size: 0.7, color: 0xffffff });
+        const starField = new THREE.Points(starsGeo, starsMat);
+        scene.add(starField);
+
+        // 6. Arrows (Vectors)
+        const pushArrow = new THREE.ArrowHelper(new THREE.Vector3(1,0,0), new THREE.Vector3(0,0,0), 0, 0x22c55e, 1, 0.8);
+        ballGroup.add(pushArrow); // Move with ball
+
+        const frictionArrow = new THREE.ArrowHelper(new THREE.Vector3(-1,0,0), new THREE.Vector3(0,-1.5,0), 0, 0xf43f5e, 1, 0.8);
+        ballGroup.add(frictionArrow);
+
+        // --- LOGIC FUNCTIONS ---
+
+        function updateConfig() {
+            // Get Force
+            const fVal = document.getElementById('slider-force').value;
+            CONFIG.force = parseFloat(fVal) / 20; // Scale down for simulation
+            document.getElementById('disp-force').innerText = fVal + " N";
+
+            // Get Friction
+            const frVal = document.getElementById('slider-friction').value;
+            CONFIG.friction = parseFloat(frVal) / 2000; // Scale down
+            
+            // Text feedback for friction
+            let fricText = "Low";
+            if(frVal > 30) fricText = "Medium";
+            if(frVal > 70) fricText = "High";
+            document.getElementById('disp-friction').innerText = fricText;
+        }
+
+        function setEnv(type) {
+            resetSim();
+            STATE.env = type;
+
+            // UI Toggles
+            document.getElementById('btn-space').classList.toggle('active', type === 'space');
+            document.getElementById('btn-earth').classList.toggle('active', type === 'earth');
+            
+            // Env Toggles
+            if(type === 'space') {
+                scene.background.setHex(CONFIG.spaceColor);
+                scene.fog.color.setHex(CONFIG.spaceColor);
+                earthFloor.visible = false;
+                earthGrid.visible = false;
+                
+                // Space Visuals
+                spaceGrid.visible = true;
+                markersGroup.visible = true;
+                starField.visible = true;
+                
+                // Disable friction slider logic visually (optional, but keeps it clean)
+                document.getElementById('slider-friction').parentElement.style.opacity = "0.3";
+                document.getElementById('slider-friction').disabled = true;
+            } else {
+                scene.background.setHex(CONFIG.earthColor);
+                scene.fog.color.setHex(CONFIG.earthColor);
+                earthFloor.visible = true;
+                earthGrid.visible = true;
+
+                // Hide Space Visuals
+                spaceGrid.visible = false;
+                markersGroup.visible = false;
+                starField.visible = false;
+
+                // Enable friction slider
+                document.getElementById('slider-friction').parentElement.style.opacity = "1";
+                document.getElementById('slider-friction').disabled = false;
+            }
+        }
+
+        function applyForce() {
+            if(STATE.isMoving) return;
+
+            const btn = document.getElementById('btn-push');
+            btn.disabled = true;
+
+            // Visual feedback of force vector
+            const arrowLen = CONFIG.force * 3; 
+            pushArrow.setLength(arrowLen, 1, 0.8);
+            
+            // Label
+            const lbl = document.getElementById('force-label');
+            lbl.innerText = `Force: ${document.getElementById('slider-force').value}N`;
+            lbl.style.opacity = 1;
+            updateLabelPos(ballGroup.position, lbl, 0, 3.5);
+
+            // Delay actual movement slightly for visual effect
+            setTimeout(() => {
+                STATE.velocity = CONFIG.force;
+                STATE.isMoving = true;
+                pushArrow.setLength(0); // Hide arrow
+                lbl.style.opacity = 0;
+            }, 400);
+        }
+
+        function resetSim() {
+            STATE.velocity = 0;
+            STATE.distance = 0;
+            STATE.isMoving = false;
+            ballGroup.position.set(0, 2, 0);
+            ball.rotation.z = 0;
+            
+            // Reset Camera
+            camera.position.set(-10, 10, 30);
+            camera.lookAt(10, 0, 0);
+
+            // Reset UI
+            document.getElementById('btn-push').disabled = false;
+            document.getElementById('fric-alert').classList.remove('visible');
+            frictionArrow.setLength(0);
+            document.getElementById('friction-label').style.opacity = 0;
+        }
+
+        // --- ANIMATION LOOP ---
+        function animate() {
+            requestAnimationFrame(animate);
+
+            let acceleration = 0;
+
+            if (STATE.isMoving) {
+                // Physics Logic
+                if (STATE.env === 'earth') {
+                    // Apply Friction
+                    acceleration = -CONFIG.friction;
+                    STATE.velocity += acceleration;
+
+                    // Friction Visuals
+                    frictionArrow.setLength(3, 1, 0.8);
+                    document.getElementById('fric-alert').classList.add('visible');
+                    
+                    const fLbl = document.getElementById('friction-label');
+                    fLbl.style.opacity = 1;
+                    updateLabelPos(ballGroup.position, fLbl, 0, -3);
+
+                    // Stop if too slow
+                    if (STATE.velocity <= 0) {
+                        STATE.velocity = 0;
+                        STATE.isMoving = false;
+                        acceleration = 0;
+                        document.getElementById('btn-push').disabled = false;
+                        frictionArrow.setLength(0);
+                        document.getElementById('fric-alert').classList.remove('visible');
+                        fLbl.style.opacity = 0;
+                    }
+                } else {
+                    // Space: Constant Velocity (Newton's 1st Law)
+                    acceleration = 0;
+                    frictionArrow.setLength(0);
+                }
+
+                // Update Position
+                ballGroup.position.x += STATE.velocity;
+                STATE.distance += STATE.velocity;
+
+                // Roll the ball visual (Arc length s = r * theta -> theta = s / r)
+                // Radius is 2.
+                ball.rotation.z -= STATE.velocity / 2;
+            }
+
+            // Camera Follow Logic (Smooth Lerp)
+            // We want the camera to follow X, but maintain offset
+            const targetCamX = ballGroup.position.x - 10; 
+            camera.position.x += (targetCamX - camera.position.x) * 0.1;
+            camera.lookAt(ballGroup.position.x + 10, 0, 0); // Look ahead
+
+            // UI Stats Update
+            document.getElementById('vel-val').innerText = (STATE.velocity * 10).toFixed(2) + " m/s";
+            document.getElementById('dist-val').innerText = STATE.distance.toFixed(1) + " m";
+            
+            let accText = "0.00";
+            if(STATE.isMoving) {
+                 accText = (STATE.env === 'space') ? "0.00 (Inertia)" : (acceleration * 100).toFixed(2);
+            }
+            document.getElementById('acc-val').innerText = accText;
+
+            renderer.render(scene, camera);
+        }
+
+        function updateLabelPos(vec3, element, offX, offY) {
+            const tempV = new THREE.Vector3(vec3.x + offX, vec3.y + offY, vec3.z);
+            tempV.project(camera);
+            const x = (tempV.x * .5 + .5) * window.innerWidth;
+            const y = (-(tempV.y * .5) + .5) * window.innerHeight;
+            element.style.left = `${x}px`;
+            element.style.top = `${y}px`;
+        }
+
+        // Init
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
+        
+        updateConfig(); // Set initial values
+        setEnv('space'); // Start in space
+        animate();
+
+    </script>
+</body>
+</html>
+```

@@ -1,0 +1,333 @@
+
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Eagle Cycling Infinite Loop Demo(Eagle Voxel Run)</title>
+    <style>
+        body { margin: 0; overflow: hidden; background-color: #000; }
+        canvas { display: block; }
+        #ui {
+            position: absolute;
+            top: 20px;
+            left: 0;
+            width: 100%;
+            text-align: center;
+            color: white;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            pointer-events: none;
+            text-shadow: 2px 2px 0 #000;
+        }
+        h1 { margin: 0; font-size: 24px; }
+        p { margin: 5px 0 0; font-size: 14px; opacity: 0.8; }
+    </style>
+</head>
+<body>
+
+    <div id="ui">
+        <h1>Voxel Eagle: Endless Road Ride</h1>
+        <p>Drag to rotate the view | Scroll to zoom</p>
+    </div>
+
+    <script type="module" nonce="MjkyODY2MDg4NiwxMTYzMTcwNjgz">
+        import * as THREE from 'https://esm.sh/three@0.158.0';
+        import { OrbitControls } from 'https://esm.sh/three@0.158.0/examples/jsm/controls/OrbitControls.js';
+
+        // ==========================================
+        // 1. 基础场景设置
+        // ==========================================
+        const scene = new THREE.Scene();
+        scene.background = new THREE.Color(0x87CEEB); // 蓝天
+        scene.fog = new THREE.Fog(0x87CEEB, 20, 60); // 远处雾气，隐藏公路尽头
+
+        const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 1000);
+        camera.position.set(20, 15, 20);
+        camera.lookAt(0, 2, 0);
+
+        const renderer = new THREE.WebGLRenderer({ antialias: true });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.shadowMap.enabled = true;
+        renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+        document.body.appendChild(renderer.domElement);
+
+        const controls = new OrbitControls(camera, renderer.domElement);
+        controls.enableDamping = true;
+        controls.target.set(0, 3, 0);
+
+        // 灯光
+        const ambientLight = new THREE.AmbientLight(0xffffff, 0.7);
+        scene.add(ambientLight);
+
+        const dirLight = new THREE.DirectionalLight(0xffffff, 0.9);
+        dirLight.position.set(20, 40, 20);
+        dirLight.castShadow = true;
+        dirLight.shadow.mapSize.width = 2048;
+        dirLight.shadow.mapSize.height = 2048;
+        dirLight.shadow.camera.near = 0.5;
+        dirLight.shadow.camera.far = 100;
+        dirLight.shadow.camera.left = -20;
+        dirLight.shadow.camera.right = 20;
+        dirLight.shadow.camera.top = 20;
+        dirLight.shadow.camera.bottom = -20;
+        scene.add(dirLight);
+
+        // ==========================================
+        // 2. 体素构建工具
+        // ==========================================
+        const boxGeo = new THREE.BoxGeometry(1, 1, 1);
+        const edgeGeo = new THREE.EdgesGeometry(boxGeo);
+        const lineMat = new THREE.LineBasicMaterial({ color: 0x000000, linewidth: 2 });
+
+        // 材质缓存，优化性能
+        const materials = {};
+        function getMaterial(colorHex) {
+            if (!materials[colorHex]) {
+                materials[colorHex] = new THREE.MeshLambertMaterial({ color: colorHex });
+            }
+            return materials[colorHex];
+        }
+
+        // 创建单个体素并加入到指定的 Group 中
+        function createVoxel(group, x, y, z, colorHex) {
+            const mesh = new THREE.Mesh(boxGeo, getMaterial(colorHex));
+            mesh.position.set(x, y, z);
+            mesh.castShadow = true;
+            mesh.receiveShadow = true;
+            
+            const edges = new THREE.LineSegments(edgeGeo, lineMat);
+            mesh.add(edges);
+            
+            group.add(mesh);
+            return mesh;
+        }
+
+        // 绘制块状区域
+        function drawBlock(group, startX, startY, startZ, w, h, d, color) {
+            for(let x=0; x<w; x++) {
+                for(let y=0; y<h; y++) {
+                    for(let z=0; z<d; z++) {
+                        createVoxel(group, startX + x, startY + y, startZ + z, color);
+                    }
+                }
+            }
+        }
+
+        // ==========================================
+        // 3. 组装老鹰和三轮车 (分层级以便动画)
+        // ==========================================
+        
+        const playerGroup = new THREE.Group();
+        scene.add(playerGroup);
+
+        // 3.1 车轮组 (需要旋转)
+        const frontWheelGroup = new THREE.Group();
+        const backWheelGroup = new THREE.Group(); // 包含左右后轮
+        
+        // 颜色定义
+        const C = {
+            TIRE: 0x333333, RIM: 0xDDDDDD, FRAME: 0xD62828, SEAT: 0x111111,
+            BROWN: 0x5C4033, WHITE: 0xFFFFFF, BEAK: 0xFCBF49, EYE: 0x000000
+        };
+
+        // --- 前轮 ---
+        // 放在组的中心(0,0,0)以便旋转，之后移动整个组
+        drawBlock(frontWheelGroup, -1, -2, -2, 2, 4, 4, C.TIRE); // 轮
+        createVoxel(frontWheelGroup, -1.1, 0, 0, C.RIM); 
+        createVoxel(frontWheelGroup, 1.1, 0, 0, C.RIM);
+        
+        frontWheelGroup.position.set(0, 2, -5); // 移动到车头位置
+        playerGroup.add(frontWheelGroup);
+
+        // --- 后轮 ---
+        // 左后轮
+        drawBlock(backWheelGroup, -3.5, -1.5, -1.5, 1, 3, 3, C.TIRE);
+        createVoxel(backWheelGroup, -3.6, 0, 0, C.RIM);
+        // 右后轮
+        drawBlock(backWheelGroup, 2.5, -1.5, -1.5, 1, 3, 3, C.TIRE);
+        createVoxel(backWheelGroup, 2.6, 0, 0, C.RIM);
+
+        backWheelGroup.position.set(0, 1.5, 2.5); // 移动到车尾位置
+        playerGroup.add(backWheelGroup);
+
+        // 3.2 车架与身体 (不旋转，只随整体颠簸)
+        const bodyGroup = new THREE.Group();
+        playerGroup.add(bodyGroup);
+
+        // 车架
+        drawBlock(bodyGroup, -2, 1, 2.5, 4, 1, 1, C.FRAME); // 后轴
+        drawBlock(bodyGroup, -0.5, 1, -3, 1, 1, 6, C.FRAME); // 主梁
+        drawBlock(bodyGroup, -0.5, 2, 1, 1, 2, 1, C.FRAME); // 座椅柱
+        drawBlock(bodyGroup, -1.5, 3, 0, 3, 1, 3, C.SEAT); // 座垫
+        
+        // 前叉 (连接前轮)
+        drawBlock(bodyGroup, -1.2, 2, -5, 0.2, 3, 1, C.FRAME); // 左叉
+        drawBlock(bodyGroup, 1, 2, -5, 0.2, 3, 1, C.FRAME);  // 右叉
+        drawBlock(bodyGroup, -2.5, 5, -5, 5, 0.5, 0.5, 0xC0C0C0); // 车把手
+
+        // 老鹰腿 (简化为静态，稍微向前)
+        drawBlock(bodyGroup, -1.5, 2, -2, 1, 2, 1, C.BEAK);
+        drawBlock(bodyGroup, 0.5, 2, -2, 1, 2, 1, C.BEAK);
+
+        // 老鹰身体
+        drawBlock(bodyGroup, -2, 4, 0, 4, 4, 4, C.BROWN);
+        
+        // 翅膀
+        drawBlock(bodyGroup, -4, 5, 1, 2, 1, 2, C.BROWN);
+        drawBlock(bodyGroup, 2, 5, 1, 2, 1, 2, C.BROWN);
+
+        // 头
+        drawBlock(bodyGroup, -1.5, 8, -0.5, 3, 3, 4, C.WHITE);
+        
+        // 脸部细节
+        createVoxel(bodyGroup, -1.6, 9, -0.6, C.EYE);
+        createVoxel(bodyGroup, 1.6, 9, -0.6, C.EYE);
+        drawBlock(bodyGroup, -0.5, 8, -2.5, 1, 2, 2, C.BEAK); // 嘴
+        createVoxel(bodyGroup, -0.5, 8, -2.5, C.BEAK); // 勾
+
+        // 尾巴
+        drawBlock(bodyGroup, -1, 4, 4, 2, 1, 2, C.WHITE);
+
+
+        // ==========================================
+        // 4. 无限公路系统
+        // ==========================================
+        
+        // 使用 Canvas 动态生成像素风格的道路纹理
+        function createRoadTexture() {
+            const canvas = document.createElement('canvas');
+            canvas.width = 128;
+            canvas.height = 128;
+            const ctx = canvas.getContext('2d');
+            
+            // 沥青色背景
+            ctx.fillStyle = '#444444';
+            ctx.fillRect(0, 0, 128, 128);
+            
+            // 噪点 (模拟像素路面)
+            ctx.fillStyle = '#555555';
+            for(let i=0; i<20; i++) {
+                ctx.fillRect(Math.random()*128, Math.random()*128, 4, 4);
+            }
+
+            // 黄色车道线
+            ctx.fillStyle = '#FFD700';
+            ctx.fillRect(60, 0, 8, 64); // 线条只画上半部分，利用Repeat产生虚线效果
+
+            // 边缘白线
+            ctx.fillStyle = '#FFFFFF';
+            ctx.fillRect(5, 0, 4, 128);
+            ctx.fillRect(119, 0, 4, 128);
+
+            const tex = new THREE.CanvasTexture(canvas);
+            tex.wrapS = THREE.RepeatWrapping;
+            tex.wrapT = THREE.RepeatWrapping;
+            tex.magFilter = THREE.NearestFilter; // 保持像素感
+            tex.repeat.set(1, 5); // 在Z轴方向重复5次
+            return tex;
+        }
+
+        const roadWidth = 20;
+        const roadLength = 200;
+        const roadGeo = new THREE.PlaneGeometry(roadWidth, roadLength);
+        const roadMat = new THREE.MeshPhongMaterial({ 
+            map: createRoadTexture()
+        });
+        
+        const road = new THREE.Mesh(roadGeo, roadMat);
+        road.rotation.x = -Math.PI / 2;
+        road.position.y = 0;
+        road.position.z = 0;
+        road.receiveShadow = true;
+        scene.add(road);
+
+        // 增加路肩的草地 (简单的绿色平面)
+        const grassGeo = new THREE.PlaneGeometry(200, 200);
+        const grassMat = new THREE.MeshLambertMaterial({ color: 0x4caf50 });
+        const grass = new THREE.Mesh(grassGeo, grassMat);
+        grass.rotation.x = -Math.PI / 2;
+        grass.position.y = -0.1; // 略低于路面
+        scene.add(grass);
+
+        // ==========================================
+        // 5. 动态云朵系统
+        // ==========================================
+        const cloudGroup = new THREE.Group();
+        scene.add(cloudGroup);
+
+        const clouds = [];
+        
+        function createCloud(x, y, z) {
+            const group = new THREE.Group();
+            // 生成不规则的云块
+            const size = Math.floor(Math.random() * 3) + 2;
+            drawBlock(group, 0, 0, 0, size+1, 1, size, 0xFFFFFF);
+            drawBlock(group, 1, 1, 1, size-1, 1, size-1, 0xFFFFFF);
+            
+            group.position.set(x, y, z);
+            cloudGroup.add(group);
+            return group;
+        }
+
+        // 初始生成20朵云
+        for(let i=0; i<20; i++) {
+            const x = (Math.random() - 0.5) * 60; // 左右散布
+            const y = 15 + Math.random() * 10;    // 高度
+            const z = (Math.random() - 0.5) * 100; // 深度散布
+            const cloud = createCloud(x, y, z);
+            clouds.push({ mesh: cloud, speed: 0.05 + Math.random() * 0.05 });
+        }
+
+        // ==========================================
+        // 6. 动画循环
+        // ==========================================
+        
+        let speed = 0.3; // 骑行速度
+        let time = 0;
+
+        function animate() {
+            requestAnimationFrame(animate);
+            time += 0.1;
+
+            // 1. 轮子转动
+            // 轮子半径约为2个单位，根据速度计算旋转
+            frontWheelGroup.rotation.x -= speed * 0.3; 
+            backWheelGroup.rotation.x -= speed * 0.3;
+
+            // 2. 身体起伏 (模拟骑行用力)
+            playerGroup.position.y = Math.sin(time * 1.5) * 0.1; 
+            // 身体稍微左右摇摆
+            playerGroup.rotation.z = Math.sin(time * 0.5) * 0.02;
+
+            // 3. 道路纹理偏移 (制造前进的错觉)
+            // 纹理的Y轴对应3D世界的Z轴
+            roadMat.map.offset.y -= (speed * 0.02); 
+
+            // 4. 云朵移动逻辑
+            clouds.forEach(c => {
+                c.mesh.position.z += speed; // 云向后飘
+                
+                // 如果云跑到了相机后面太远，重置到前方
+                if(c.mesh.position.z > 30) {
+                    c.mesh.position.z = -80;
+                    c.mesh.position.x = (Math.random() - 0.5) * 60;
+                }
+            });
+
+            controls.update();
+            renderer.render(scene, camera);
+        }
+
+        // 窗口自适应
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
+
+        animate();
+
+    </script>
+</body>
+</html>
+```

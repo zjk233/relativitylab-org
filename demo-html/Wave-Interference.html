@@ -1,0 +1,468 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Wave Interference & Superposition</title>
+    <style>
+        :root {
+            --bg: #050505;
+            --panel: rgba(20, 20, 30, 0.85);
+            --primary: #00f3ff;
+            --danger: #ff3333;
+            --text: #eee;
+            --glass: backdrop-filter: blur(8px);
+        }
+
+        body {
+            margin: 0;
+            overflow: hidden;
+            background-color: var(--bg);
+            font-family: 'Segoe UI', Roboto, sans-serif;
+            color: var(--text);
+            display: flex;
+            height: 100vh;
+        }
+
+        /* --- MAIN LAYOUT --- */
+        #simulation-area {
+            position: relative;
+            flex-grow: 1;
+            cursor: crosshair;
+        }
+
+        canvas { display: block; width: 100%; height: 100%; }
+
+        /* --- SIDEBAR (Right) --- */
+        #sidebar {
+            width: 320px;
+            background: var(--panel);
+            border-left: 1px solid rgba(255,255,255,0.1);
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+            z-index: 10;
+            var(--glass);
+            box-shadow: -5px 0 20px rgba(0,0,0,0.5);
+        }
+
+        h1 { margin: 0; font-size: 20px; font-weight: 700; letter-spacing: 1px; color: var(--primary); text-transform: uppercase; }
+        h2 { margin: 0 0 10px 0; font-size: 12px; color: #888; font-weight: 400; text-transform: uppercase; }
+
+        /* Intensity Graph */
+        #graph-container {
+            height: 150px;
+            background: rgba(0,0,0,0.5);
+            border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 8px;
+            position: relative;
+        }
+        #graph-canvas { width: 100%; height: 100%; border-radius: 8px; }
+
+        /* Controls */
+        .control-group { display: flex; flex-direction: column; gap: 8px; }
+        .label-row { display: flex; justify-content: space-between; font-size: 13px; font-weight: 600; }
+        .val-disp { font-family: monospace; color: var(--primary); }
+
+        input[type=range] {
+            width: 100%; -webkit-appearance: none; background: transparent;
+        }
+        input[type=range]::-webkit-slider-thumb {
+            -webkit-appearance: none; height: 16px; width: 16px;
+            border-radius: 50%; background: #fff;
+            cursor: pointer; margin-top: -6px;
+            box-shadow: 0 0 10px white;
+        }
+        input[type=range]::-webkit-slider-runnable-track {
+            width: 100%; height: 4px; background: #444; border-radius: 2px;
+        }
+
+        /* Mode Buttons */
+        .btn-group { display: flex; gap: 10px; }
+        .mode-btn {
+            flex: 1;
+            background: transparent;
+            border: 1px solid rgba(255,255,255,0.2);
+            color: #aaa;
+            padding: 10px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: 600;
+            font-size: 12px;
+            transition: all 0.2s;
+        }
+        .mode-btn.active { background: var(--primary); color: #000; border-color: var(--primary); }
+        .mode-btn.active-red { background: var(--danger); color: #fff; border-color: var(--danger); }
+
+        /* Floating Labels */
+        .marker-label {
+            position: absolute;
+            pointer-events: none;
+            font-size: 12px;
+            font-weight: bold;
+            text-shadow: 0 2px 4px black;
+            white-space: nowrap;
+            opacity: 0.8;
+        }
+
+        #source-1, #source-2 {
+            position: absolute;
+            width: 20px; height: 20px;
+            margin-left: -10px; margin-top: -10px;
+            border-radius: 50%;
+            border: 2px solid white;
+            box-shadow: 0 0 10px white;
+            pointer-events: none; /* Mouse handles via canvas */
+            z-index: 5;
+        }
+
+    </style>
+</head>
+<body>
+
+    <div id="simulation-area">
+        <canvas id="waveCanvas"></canvas>
+        
+        <!-- Draggable Source Indicators -->
+        <div id="source-1"></div>
+        <div id="source-2"></div>
+
+        <!-- Context Labels -->
+        <div id="lbl-constructive" class="marker-label" style="color: #fff;">Constructive (Bright)</div>
+        <div id="lbl-destructive" class="marker-label" style="color: #888;">Destructive (Dark)</div>
+    </div>
+
+    <div id="sidebar">
+        <div>
+            <h1>Wave Interference</h1>
+            <div style="font-size: 12px; color: #aaa; margin-top:5px;">Drag the sources to change pattern</div>
+        </div>
+
+        <!-- Mode Switch -->
+        <div class="btn-group">
+            <button class="mode-btn active" id="btn-water" onclick="setMode('water')">🌊 Water (Ripple)</button>
+            <button class="mode-btn" id="btn-light" onclick="setMode('light')">💡 Light (Laser)</button>
+        </div>
+
+        <!-- Sliders -->
+        <div class="control-group">
+            <div class="label-row">
+                <span>Frequency (Hz)</span>
+                <span id="freq-val" class="val-disp">10.0</span>
+            </div>
+            <input type="range" id="slider-freq" min="1" max="20" value="8" step="0.5">
+        </div>
+
+        <div class="control-group">
+            <div class="label-row">
+                <span>Separation</span>
+                <span id="sep-val" class="val-disp">Close</span>
+            </div>
+            <input type="range" id="slider-sep" min="10" max="300" value="100">
+        </div>
+
+        <!-- Intensity Graph -->
+        <div>
+            <h2>Interference Pattern (Screen)</h2>
+            <div id="graph-container">
+                <canvas id="graphCanvas"></canvas>
+                <!-- Axis Labels -->
+                <span style="position:absolute; left:5px; top:5px; font-size:10px; color:#aaa;">Intensity</span>
+                <span style="position:absolute; right:5px; bottom:5px; font-size:10px; color:#aaa;">Position (y)</span>
+            </div>
+            <div style="font-size: 11px; color: #666; margin-top: 5px; line-height: 1.4;">
+                This graph shows the brightness (intensity) along the right edge of the simulation.
+            </div>
+        </div>
+    </div>
+
+<script>
+    // --- CONFIGURATION ---
+    const CONFIG = {
+        mode: 'water', // 'water' or 'light'
+        freq: 0.15,    // Wave number k essentially
+        speed: 0.1,
+        amplitude: 127,
+        sources: [
+            { x: 0.3, y: 0.4 }, // Normalized coords (0-1)
+            { x: 0.3, y: 0.6 }
+        ]
+    };
+
+    // --- STATE ---
+    let time = 0;
+    let isDragging = -1; // Index of source being dragged
+
+    // --- CANVAS SETUP ---
+    const canvas = document.getElementById('waveCanvas');
+    const ctx = canvas.getContext('2d', { alpha: false }); // Optimize
+    
+    const gCanvas = document.getElementById('graphCanvas');
+    const gCtx = gCanvas.getContext('2d');
+
+    // Internal resolution for simulation (Lower than screen for performance)
+    // We stretch this to fit screen using CSS
+    const simWidth = 250; 
+    const simHeight = 250;
+    canvas.width = simWidth;
+    canvas.height = simHeight;
+
+    const imgData = ctx.createImageData(simWidth, simHeight);
+    const pixels = imgData.data;
+
+    // Resize Handler for UI Elements
+    let clientW, clientH;
+    function handleResize() {
+        const container = document.getElementById('simulation-area');
+        clientW = container.clientWidth;
+        clientH = container.clientHeight;
+        
+        gCanvas.width = gCanvas.parentElement.clientWidth;
+        gCanvas.height = gCanvas.parentElement.clientHeight;
+    }
+    window.addEventListener('resize', handleResize);
+    handleResize();
+
+    // --- MATH HELPERS ---
+    // Precomputed color lookups could optimize this further, 
+    // but Math.sin is fast enough for 250x250 on modern devices.
+
+    function updateWave() {
+        time += CONFIG.speed;
+
+        // Scale normalized source positions to sim resolution
+        const s1x = CONFIG.sources[0].x * simWidth;
+        const s1y = CONFIG.sources[0].y * simHeight;
+        const s2x = CONFIG.sources[1].x * simWidth;
+        const s2y = CONFIG.sources[1].y * simHeight;
+
+        const k = CONFIG.freq; // Wave number proportional to slider
+
+        let ptr = 0; // Pixel pointer
+
+        // Loop through every pixel
+        for (let y = 0; y < simHeight; y++) {
+            for (let x = 0; x < simWidth; x++) {
+                
+                // Calculate Distances
+                const d1 = Math.sqrt((x - s1x)**2 + (y - s1y)**2);
+                const d2 = Math.sqrt((x - s2x)**2 + (y - s2y)**2);
+
+                // Superposition Principle
+                // Wave = A * sin(k*r - wt)
+                const val1 = Math.sin(d1 * k - time);
+                const val2 = Math.sin(d2 * k - time);
+                let sum = val1 + val2; // Range -2 to 2
+
+                // Color Mapping
+                let r, g, b;
+
+                if (CONFIG.mode === 'water') {
+                    // Ripple Tank: Blue/Cyan/White height map
+                    // Normalize -2..2 to 0..255 range logic
+                    // Trough (Deep Blue) -> Crest (White)
+                    const intensity = (sum + 2) / 4; // 0.0 to 1.0
+                    
+                    // Custom Gradient
+                    r = intensity * 100;
+                    g = intensity * 200;
+                    b = 150 + intensity * 105;
+
+                    // Highlight peaks
+                    if (intensity > 0.8) { r=200; g=255; b=255; }
+                    // Deep troughs
+                    if (intensity < 0.2) { r=0; g=20; b=80; }
+
+                } else {
+                    // Laser Mode: Intensity = Amplitude^2
+                    // Visualizes Constructive vs Destructive clearly
+                    const intensity = (sum * sum) / 4; // 0.0 to 1.0
+                    
+                    r = intensity * 255;
+                    g = 0;
+                    b = 0;
+                }
+
+                pixels[ptr++] = r;
+                pixels[ptr++] = g;
+                pixels[ptr++] = b;
+                pixels[ptr++] = 255; // Alpha
+            }
+        }
+
+        // Push to Canvas
+        ctx.putImageData(imgData, 0, 0);
+
+        // Draw Source Markers on Canvas
+        updateSourceDivs();
+        
+        // Draw Graph
+        drawGraph(s1x, s1y, s2x, s2y, k);
+
+        // Locate Constructive/Destructive points for labels
+        updateLabels(s1x, s1y, s2x, s2y, k);
+
+        requestAnimationFrame(updateWave);
+    }
+
+    // --- SIDEBAR GRAPH VISUALIZATION ---
+    function drawGraph(s1x, s1y, s2x, s2y, k) {
+        const w = gCanvas.width;
+        const h = gCanvas.height;
+        gCtx.clearRect(0, 0, w, h);
+        
+        gCtx.strokeStyle = (CONFIG.mode === 'water') ? '#00f3ff' : '#ff3333';
+        gCtx.lineWidth = 2;
+        gCtx.beginPath();
+
+        // Simulate a screen placed at the right edge of the sim (x = simWidth)
+        const screenX = simWidth;
+
+        for (let i = 0; i < h; i++) {
+            // Map graph Y to sim Y
+            const simY = (i / h) * simHeight;
+
+            const d1 = Math.sqrt((screenX - s1x)**2 + (simY - s1y)**2);
+            const d2 = Math.sqrt((screenX - s2x)**2 + (simY - s2y)**2);
+
+            // Calculate Amplitude sum at this point
+            // Note: We use the envelope (phase difference), not the instantaneous time
+            // Phase Diff = k * (d2 - d1)
+            // Resulting Amplitude = 2A * cos(PhaseDiff / 2)
+            // Intensity = Amplitude^2
+            
+            const phaseDiff = k * (d2 - d1);
+            const resultAmp = 2 * Math.cos(phaseDiff / 2);
+            const intensity = (resultAmp * resultAmp) / 4; // Norm 0-1
+
+            // Plot
+            const plotX = intensity * (w - 10);
+            if (i === 0) gCtx.moveTo(plotX, i);
+            else gCtx.lineTo(plotX, i);
+        }
+        gCtx.stroke();
+
+        // Fill
+        gCtx.lineTo(0, h);
+        gCtx.lineTo(0, 0);
+        gCtx.fillStyle = (CONFIG.mode === 'water') ? 'rgba(0, 243, 255, 0.2)' : 'rgba(255, 50, 50, 0.2)';
+        gCtx.fill();
+    }
+
+    // --- LABELS UPDATE ---
+    function updateLabels(s1x, s1y, s2x, s2y, k) {
+        // Find a point on the right side where Constructive Interference occurs
+        // Constructive: Phase Diff is close to 0 or 2PI
+        // Destructive: Phase Diff is close to PI
+        
+        const checkX = simWidth * 0.8;
+        
+        // Simple search for label positions
+        // We just fix Y and calculate what happens there to place labels contextually?
+        // Better: Just place them at specific Y coords that we calculate mathematically.
+        
+        // Approximate center line (Constructive Central Maxima)
+        const midY = (s1y + s2y) / 2;
+        
+        // Position labels in screen coordinates
+        const screenX = clientW * 0.8;
+        const screenY_C = (midY / simHeight) * clientH;
+        
+        const lblC = document.getElementById('lbl-constructive');
+        lblC.style.left = (screenX - 50) + 'px';
+        lblC.style.top = (screenY_C - 10) + 'px';
+
+        // Destructive: Roughly where path difference is 0.5 wavelength
+        // Wavelength = 2PI / k
+        // Delta Y approx = (lambda * D) / d
+        // Let's just hide/show based on separation to avoid overlap mess
+        const lblD = document.getElementById('lbl-destructive');
+        lblD.style.left = (screenX - 50) + 'px';
+        lblD.style.top = (screenY_C + 60) + 'px'; // Hardcoded offset for demo simplicity
+    }
+
+    // --- INTERACTION ---
+
+    function updateSourceDivs() {
+        const div1 = document.getElementById('source-1');
+        const div2 = document.getElementById('source-2');
+        
+        div1.style.left = (CONFIG.sources[0].x * clientW) + 'px';
+        div1.style.top = (CONFIG.sources[0].y * clientH) + 'px';
+        
+        div2.style.left = (CONFIG.sources[1].x * clientW) + 'px';
+        div2.style.top = (CONFIG.sources[1].y * clientH) + 'px';
+    }
+
+    // Mode Switcher
+    window.setMode = (mode) => {
+        CONFIG.mode = mode;
+        const btnW = document.getElementById('btn-water');
+        const btnL = document.getElementById('btn-light');
+        
+        if (mode === 'water') {
+            btnW.classList.add('active');
+            btnL.classList.remove('active-red');
+        } else {
+            btnW.classList.remove('active');
+            btnL.classList.add('active-red');
+        }
+    };
+
+    // Slider Listeners
+    document.getElementById('slider-freq').addEventListener('input', (e) => {
+        CONFIG.freq = e.target.value / 40; // Map 1-20 to reasonable k
+        document.getElementById('freq-val').innerText = e.target.value + " Hz";
+    });
+
+    document.getElementById('slider-sep').addEventListener('input', (e) => {
+        // Move sources symmetrically
+        const center = 0.5;
+        const halfSep = (e.target.value / clientH) / 2;
+        CONFIG.sources[0].y = center - halfSep;
+        CONFIG.sources[1].y = center + halfSep;
+        document.getElementById('sep-val').innerText = e.target.value + " px";
+    });
+
+    // Mouse/Touch Dragging Logic
+    const container = document.getElementById('simulation-area');
+
+    container.addEventListener('mousedown', (e) => {
+        const rect = container.getBoundingClientRect();
+        const mx = (e.clientX - rect.left) / rect.width;
+        const my = (e.clientY - rect.top) / rect.height;
+
+        // Check distance to sources
+        const d1 = Math.hypot(mx - CONFIG.sources[0].x, my - CONFIG.sources[0].y);
+        const d2 = Math.hypot(mx - CONFIG.sources[1].x, my - CONFIG.sources[1].y);
+
+        if (d1 < 0.05) isDragging = 0;
+        else if (d2 < 0.05) isDragging = 1;
+    });
+
+    window.addEventListener('mousemove', (e) => {
+        if (isDragging === -1) return;
+        const rect = container.getBoundingClientRect();
+        let mx = (e.clientX - rect.left) / rect.width;
+        let my = (e.clientY - rect.top) / rect.height;
+        
+        // Clamp
+        mx = Math.max(0, Math.min(1, mx));
+        my = Math.max(0, Math.min(1, my));
+
+        CONFIG.sources[isDragging].x = mx;
+        CONFIG.sources[isDragging].y = my;
+    });
+
+    window.addEventListener('mouseup', () => {
+        isDragging = -1;
+    });
+
+    // Init
+    updateWave();
+
+</script>
+</body>
+</html>
+```

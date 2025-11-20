@@ -1,0 +1,617 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Acid-Base Neutralization Simulation</title>
+    <style>
+        :root {
+            --bg-color: #0a0b10;
+            --panel-bg: rgba(20, 25, 35, 0.8);
+            --acid-red: #ff3333;
+            --base-blue: #3388ff;
+            --neutral-green: #00ff88;
+            --text-main: #ffffff;
+            --border: rgba(255,255,255,0.15);
+        }
+
+        body {
+            margin: 0;
+            overflow: hidden;
+            background-color: var(--bg-color);
+            font-family: 'Segoe UI', Roboto, sans-serif;
+            color: var(--text-main);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+        }
+
+        /* --- LAYOUT --- */
+        #app-container {
+            position: relative;
+            width: 90vw;
+            height: 85vh;
+            display: grid;
+            grid-template-columns: 2fr 1fr; /* Simulation Area | Data Area */
+            gap: 20px;
+        }
+
+        /* --- VIEWPORTS --- */
+        .viewport {
+            position: relative;
+            background: radial-gradient(circle at center, #1a1f2e 0%, #000 100%);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            overflow: hidden;
+            box-shadow: 0 0 30px rgba(0,0,0,0.5);
+        }
+
+        /* View 1: MACRO (Beaker) */
+        #macro-view {
+            width: 100%; height: 100%;
+            display: flex;
+            justify-content: center;
+            align-items: flex-end;
+            padding-bottom: 50px;
+            box-sizing: border-box;
+            display: none; /* Hidden by default */
+        }
+        
+        .beaker {
+            width: 200px;
+            height: 300px;
+            border: 4px solid rgba(255,255,255,0.3);
+            border-top: none;
+            border-radius: 0 0 20px 20px;
+            position: relative;
+            overflow: hidden;
+            background: rgba(255,255,255,0.05);
+        }
+
+        .liquid {
+            position: absolute;
+            bottom: 0; left: 0; width: 100%;
+            height: 40%; /* Initial level */
+            background-color: var(--acid-red);
+            transition: background-color 1s, height 0.5s;
+            box-shadow: 0 0 40px inset rgba(0,0,0,0.2);
+        }
+        
+        .liquid::after {
+            content: '';
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 10px;
+            background: rgba(255,255,255,0.2);
+            transform: skewX(-20deg);
+        }
+
+        .burette {
+            position: absolute;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 20px;
+            height: 150px;
+            background: rgba(255,255,255,0.1);
+            border: 2px solid rgba(255,255,255,0.3);
+            border-radius: 0 0 5px 5px;
+        }
+        
+        .drop {
+            position: absolute;
+            left: 50%; bottom: -10px;
+            width: 10px; height: 10px;
+            background: var(--base-blue);
+            border-radius: 50%;
+            transform: translateX(-50%);
+            opacity: 0;
+        }
+        .drop-anim { animation: drip 0.5s linear; }
+
+        @keyframes drip {
+            0% { top: 150px; opacity: 1; }
+            100% { top: 350px; opacity: 0; }
+        }
+
+        /* View 2: MICRO (Canvas) */
+        #micro-view {
+            width: 100%; height: 100%;
+            display: block;
+        }
+        canvas { display: block; }
+
+        /* --- DATA PANEL (Right Side) --- */
+        #data-panel {
+            background: var(--panel-bg);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+            backdrop-filter: blur(10px);
+        }
+
+        h1 { margin: 0; font-size: 22px; color: var(--text-main); border-bottom: 1px solid var(--border); padding-bottom: 10px; }
+        h2 { margin: 0; font-size: 14px; color: #aaa; font-weight: normal; }
+
+        .stat-row {
+            display: flex; justify-content: space-between;
+            align-items: center;
+            font-family: monospace;
+            font-size: 16px;
+        }
+        .ph-val { font-size: 24px; font-weight: bold; color: var(--acid-red); transition: color 0.5s; }
+
+        /* Graph Container */
+        .graph-container {
+            flex-grow: 1;
+            background: rgba(0,0,0,0.3);
+            border-radius: 8px;
+            position: relative;
+            border-left: 2px solid #666;
+            border-bottom: 2px solid #666;
+        }
+        #ph-canvas { width: 100%; height: 100%; }
+
+        /* Controls */
+        .controls {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        button {
+            padding: 12px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: bold;
+            font-size: 14px;
+            transition: all 0.2s;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .btn-titrate {
+            background: linear-gradient(90deg, var(--base-blue), #5599ff);
+            color: white;
+            box-shadow: 0 0 15px rgba(51, 136, 255, 0.4);
+        }
+        .btn-titrate:active { transform: scale(0.98); }
+        .btn-titrate:disabled { background: #444; cursor: not-allowed; opacity: 0.5; }
+
+        .btn-switch {
+            background: transparent;
+            border: 1px solid rgba(255,255,255,0.3);
+            color: #aaa;
+        }
+        .btn-switch:hover { background: rgba(255,255,255,0.1); color: white; }
+
+        .btn-reset {
+            background: #333;
+            color: white;
+        }
+
+        /* Legend */
+        .legend { display: flex; gap: 15px; font-size: 12px; color: #ddd; justify-content: center; margin-top: 5px; }
+        .dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; margin-right: 5px; }
+
+    </style>
+</head>
+<body>
+
+<div id="app-container">
+    
+    <!-- Left: Visual Simulation -->
+    <div class="viewport">
+        
+        <!-- Macro Layer -->
+        <div id="macro-view">
+            <div class="burette"><div id="macro-drop" class="drop"></div></div>
+            <div class="beaker">
+                <div class="liquid" id="beaker-liquid"></div>
+            </div>
+            <div style="position: absolute; top: 20px; left: 20px; color: #aaa;">
+                📷 MACROSCOPIC VIEW
+            </div>
+        </div>
+
+        <!-- Micro Layer -->
+        <div id="micro-view">
+            <canvas id="sim-canvas"></canvas>
+            <div style="position: absolute; top: 20px; left: 20px; color: #aaa;">
+                🔬 IONIC VIEW (10,000,000x)
+            </div>
+            <div class="legend" style="position: absolute; bottom: 20px; width: 100%;">
+                <span><span class="dot" style="background:var(--acid-red); box-shadow: 0 0 5px var(--acid-red);"></span>H⁺ (Acid)</span>
+                <span><span class="dot" style="background:var(--base-blue); box-shadow: 0 0 5px var(--base-blue);"></span>OH⁻ (Base)</span>
+                <span><span class="dot" style="background:white; opacity: 0.7"></span>H₂O (Water)</span>
+                <span><span class="dot" style="background:#ffff00; box-shadow: 0 0 8px #ffff00;"></span>ENERGY</span>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- Right: Data & Controls -->
+    <div id="data-panel">
+        <div>
+            <h1>Neutralization</h1>
+            <h2>HCl + NaOH → NaCl + H₂O</h2>
+        </div>
+
+        <div class="stat-row">
+            <span>Current pH:</span>
+            <span class="ph-val" id="ph-display">1.0</span>
+        </div>
+
+        <div class="graph-container">
+            <canvas id="ph-canvas"></canvas>
+            <!-- Axis Labels -->
+            <span style="position: absolute; left: 5px; top: 5px; font-size: 10px; color:#888;">pH 14</span>
+            <span style="position: absolute; left: 5px; bottom: 5px; font-size: 10px; color:#888;">pH 0</span>
+            <span style="position: absolute; right: 5px; bottom: 5px; font-size: 10px; color:#888;">Volume NaOH</span>
+        </div>
+
+        <div class="controls">
+            <button class="btn-titrate" id="btn-add" onclick="addBase()">💧 Add Base (OH⁻)</button>
+            <button class="btn-switch" onclick="toggleView()">👁️ Toggle Macro / Micro View</button>
+            <button class="btn-reset" onclick="resetSim()">↻ Reset Experiment</button>
+        </div>
+    </div>
+
+</div>
+
+<script>
+    // --- CONFIGURATION ---
+    const CONFIG = {
+        hPlusColor: '#ff3333',
+        ohMinusColor: '#3388ff',
+        waterColor: '#ffffff',
+        flashColor: '#ffffaa',
+        maxParticles: 150,
+        reactionDistance: 25 // Distance to trigger neutralization
+    };
+
+    // --- STATE MANAGEMENT ---
+    const STATE = {
+        view: 'micro', // 'macro' or 'micro'
+        baseAdded: 0, // 0 to 100%
+        ph: 1.0,
+        particles: [],
+        flashes: [],
+        isComplete: false
+    };
+
+    // --- CANVAS SETUP ---
+    const canvas = document.getElementById('sim-canvas');
+    const ctx = canvas.getContext('2d');
+    let width, height;
+
+    const phCanvas = document.getElementById('ph-canvas');
+    const phCtx = phCanvas.getContext('2d');
+
+    function resize() {
+        width = canvas.width = canvas.parentElement.clientWidth;
+        height = canvas.height = canvas.parentElement.clientHeight;
+        
+        phCanvas.width = phCanvas.parentElement.clientWidth;
+        phCanvas.height = phCanvas.parentElement.clientHeight;
+        drawGraph(); // Redraw graph on resize
+    }
+    window.addEventListener('resize', resize);
+
+    // --- PARTICLE SYSTEM (MICRO VIEW) ---
+    class Particle {
+        constructor(type, x, y) {
+            this.type = type; // 'H+', 'OH-', 'H2O', 'Na+', 'Cl-'
+            this.x = x || Math.random() * width;
+            this.y = y || Math.random() * height;
+            this.vx = (Math.random() - 0.5) * 2;
+            this.vy = (Math.random() - 0.5) * 2;
+            this.radius = (type === 'H2O') ? 6 : 4;
+            this.alpha = 1;
+        }
+
+        update() {
+            this.x += this.vx;
+            this.y += this.vy;
+
+            // Bounce off walls
+            if(this.x < 0 || this.x > width) this.vx *= -1;
+            if(this.y < 0 || this.y > height) this.vy *= -1;
+
+            // Damping for water (H2O moves slower)
+            if(this.type === 'H2O') {
+                this.vx *= 0.99;
+                this.vy *= 0.99;
+            }
+        }
+
+        draw() {
+            ctx.save();
+            ctx.globalAlpha = this.alpha;
+            ctx.translate(this.x, this.y);
+
+            if(this.type === 'H+') {
+                // Proton
+                ctx.shadowBlur = 10;
+                ctx.shadowColor = CONFIG.hPlusColor;
+                ctx.fillStyle = CONFIG.hPlusColor;
+                ctx.beginPath(); ctx.arc(0,0, 5, 0, Math.PI*2); ctx.fill();
+                ctx.fillStyle = 'white';
+                ctx.font = '10px Arial'; ctx.fillText('+', -3, 3);
+            } 
+            else if (this.type === 'OH-') {
+                // Hydroxide
+                ctx.shadowBlur = 10;
+                ctx.shadowColor = CONFIG.ohMinusColor;
+                ctx.fillStyle = CONFIG.ohMinusColor;
+                ctx.beginPath(); ctx.arc(0,0, 7, 0, Math.PI*2); ctx.fill();
+                ctx.fillStyle = 'white';
+                ctx.font = '10px Arial'; ctx.fillText('-', -2, 3);
+            }
+            else if (this.type === 'H2O') {
+                // Water Molecule
+                ctx.fillStyle = 'rgba(255,255,255,0.3)';
+                // Oxygen
+                ctx.beginPath(); ctx.arc(0, 0, 6, 0, Math.PI*2); ctx.fill();
+                // Hydrogens
+                ctx.beginPath(); ctx.arc(-5, -5, 3, 0, Math.PI*2); ctx.fill();
+                ctx.beginPath(); ctx.arc(5, -5, 3, 0, Math.PI*2); ctx.fill();
+            }
+            else {
+                // Spectator Ions (faded)
+                ctx.fillStyle = '#444';
+                ctx.beginPath(); ctx.arc(0,0, 3, 0, Math.PI*2); ctx.fill();
+            }
+            ctx.restore();
+        }
+    }
+
+    class Flash {
+        constructor(x, y) {
+            this.x = x; 
+            this.y = y;
+            this.life = 1.0;
+            this.size = 1;
+        }
+        update() {
+            this.life -= 0.05;
+            this.size += 2;
+        }
+        draw() {
+            if(this.life <= 0) return;
+            ctx.save();
+            ctx.globalAlpha = this.life;
+            ctx.beginPath();
+            ctx.arc(this.x, this.y, this.size, 0, Math.PI*2);
+            ctx.fillStyle = CONFIG.flashColor;
+            ctx.shadowBlur = 20;
+            ctx.shadowColor = 'white';
+            ctx.fill();
+            ctx.restore();
+        }
+    }
+
+    // --- PHYSICS ENGINE ---
+    function updateMicroView() {
+        ctx.clearRect(0, 0, width, height);
+
+        // Update Particles
+        for (let i = STATE.particles.length - 1; i >= 0; i--) {
+            let p = STATE.particles[i];
+            p.update();
+            p.draw();
+        }
+
+        // Update Flashes
+        for (let i = STATE.flashes.length - 1; i >= 0; i--) {
+            let f = STATE.flashes[i];
+            f.update();
+            f.draw();
+            if(f.life <= 0) STATE.flashes.splice(i, 1);
+        }
+
+        // Collision Detection (Reaction Logic)
+        // Find H+ and OH- nearby
+        let hIons = STATE.particles.filter(p => p.type === 'H+');
+        let ohIons = STATE.particles.filter(p => p.type === 'OH-');
+
+        // Simple naive O(n^2) check, but acceptable for < 200 particles
+        for (let h of hIons) {
+            if(h.reacted) continue;
+            for (let oh of ohIons) {
+                if(oh.reacted) continue;
+                
+                let dx = h.x - oh.x;
+                let dy = h.y - oh.y;
+                let dist = Math.sqrt(dx*dx + dy*dy);
+
+                if (dist < CONFIG.reactionDistance) {
+                    // REACT!
+                    h.reacted = true;
+                    oh.reacted = true;
+
+                    // Create Energy Flash
+                    STATE.flashes.push(new Flash((h.x+oh.x)/2, (h.y+oh.y)/2));
+
+                    // Remove ions
+                    STATE.particles = STATE.particles.filter(p => p !== h && p !== oh);
+
+                    // Create Water
+                    STATE.particles.push(new Particle('H2O', (h.x+oh.x)/2, (h.y+oh.y)/2));
+                    
+                    break; // One H+ reacts with one OH-
+                }
+            }
+        }
+    }
+
+    // --- LOGIC CONTROLLER ---
+
+    function init() {
+        resize();
+        resetSim();
+        animate();
+    }
+
+    function resetSim() {
+        STATE.baseAdded = 0;
+        STATE.ph = 1.0;
+        STATE.isComplete = false;
+        STATE.particles = [];
+        STATE.flashes = [];
+
+        // Start with Acid (H+ and Cl-)
+        for(let i=0; i<40; i++) {
+            STATE.particles.push(new Particle('H+'));
+            STATE.particles.push(new Particle('Cl-')); // Spectator
+        }
+
+        updateDOM();
+        drawGraph();
+    }
+
+    function addBase() {
+        if (STATE.isComplete) return;
+
+        // 1. Update Logic
+        STATE.baseAdded += 5; // Increment by 5%
+        
+        // Calculate pH based on Sigmoid Curve Approximation
+        // Center of steep rise is at 50% added base (Neutralization point)
+        // Formula: pH = 7 + (base - 50) * slope... simplified sigmoid:
+        const x = (STATE.baseAdded - 50) / 5; 
+        STATE.ph = 7 + (7 * (x / Math.sqrt(1 + x*x))); // Soft sigmoid -1 to 1 -> pH 0 to 14 mapping
+        
+        if (STATE.baseAdded >= 100) {
+            STATE.baseAdded = 100;
+            STATE.ph = 14;
+            STATE.isComplete = true;
+        }
+
+        // 2. Inject OH- particles (Micro View)
+        for(let i=0; i<5; i++) {
+            STATE.particles.push(new Particle('OH-', width/2 + (Math.random()-0.5)*20, 0)); // Drop from top
+            STATE.particles.push(new Particle('Na+', width/2 + (Math.random()-0.5)*20, 0)); // Spectator
+        }
+
+        // 3. Trigger Animation (Macro View)
+        const drop = document.getElementById('macro-drop');
+        drop.classList.remove('drop-anim');
+        void drop.offsetWidth; // trigger reflow
+        drop.classList.add('drop-anim');
+
+        // 4. Update UI
+        updateDOM();
+        drawGraph();
+    }
+
+    function updateDOM() {
+        // pH Display Color
+        const phDisp = document.getElementById('ph-display');
+        phDisp.innerText = STATE.ph.toFixed(1);
+        
+        // Color Interpolation
+        let color = '#00ff00';
+        if (STATE.ph < 7) color = `rgb(255, ${STATE.ph * 30}, ${STATE.ph * 30})`; // Red to Yellow
+        else if (STATE.ph > 7) color = `rgb(${255 - (STATE.ph-7)*30}, ${255 - (STATE.ph-7)*10}, 255)`; // Green to Blue/Purple
+        
+        phDisp.style.color = color;
+        
+        // Beaker Liquid Color
+        const liquid = document.getElementById('beaker-liquid');
+        liquid.style.backgroundColor = color;
+        // Liquid Level Rise
+        liquid.style.height = (40 + (STATE.baseAdded * 0.4)) + '%';
+
+        // Button state
+        document.getElementById('btn-add').disabled = STATE.isComplete;
+    }
+
+    function toggleView() {
+        const macro = document.getElementById('macro-view');
+        const micro = document.getElementById('micro-view');
+        
+        if(STATE.view === 'micro') {
+            STATE.view = 'macro';
+            micro.style.display = 'none';
+            macro.style.display = 'flex';
+        } else {
+            STATE.view = 'micro';
+            macro.style.display = 'none';
+            micro.style.display = 'block';
+        }
+    }
+
+    // --- GRAPH DRAWING ---
+    function drawGraph() {
+        const ctx = phCtx;
+        const w = phCanvas.width;
+        const h = phCanvas.height;
+
+        ctx.clearRect(0, 0, w, h);
+
+        // Grid
+        ctx.strokeStyle = '#444';
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        // Neutral Line (pH 7 is middle of 0-14 scale)
+        const y7 = h - (h * (7/14));
+        ctx.moveTo(0, y7); ctx.lineTo(w, y7);
+        ctx.stroke();
+
+        // Draw Curve
+        ctx.strokeStyle = '#fff';
+        ctx.lineWidth = 3;
+        ctx.beginPath();
+
+        // We reconstruct the curve up to current point
+        // Max X is 100 steps
+        const stepX = w / 100;
+        
+        ctx.moveTo(0, h - (h * (1/14))); // Start at pH 1
+
+        for(let i=0; i<=STATE.baseAdded; i++) {
+            // Recalculate pH for graph logic
+            let val = 1;
+            if(i > 0) {
+                const x = (i - 50) / 5;
+                val = 7 + (7 * (x / Math.sqrt(1 + x*x)));
+            }
+            
+            // Map val (0-14) to Y (h-0)
+            const plotY = h - (val / 14 * h);
+            const plotX = i * stepX;
+            ctx.lineTo(plotX, plotY);
+        }
+        ctx.stroke();
+
+        // Current Dot
+        if(STATE.baseAdded > 0) {
+            const lastX = STATE.baseAdded * stepX;
+            const x = (STATE.baseAdded - 50) / 5;
+            const curVal = 7 + (7 * (x / Math.sqrt(1 + x*x)));
+            const lastY = h - (curVal / 14 * h);
+
+            ctx.fillStyle = document.getElementById('ph-display').style.color;
+            ctx.beginPath(); ctx.arc(lastX, lastY, 5, 0, Math.PI*2); ctx.fill();
+            ctx.shadowBlur = 10; ctx.shadowColor = ctx.fillStyle;
+        }
+    }
+
+    function animate() {
+        requestAnimationFrame(animate);
+        if(STATE.view === 'micro') {
+            updateMicroView();
+        }
+    }
+
+    init();
+
+</script>
+</body>
+</html>
+```

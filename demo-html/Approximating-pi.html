@@ -1,0 +1,426 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Approximating Pi - Smooth & Slow</title>
+    <style>
+        :root {
+            --bg-color: #0b0f19;
+            --text-primary: #e2e8f0;
+            --text-secondary: #94a3b8;
+            --card-bg: rgba(30, 41, 59, 0.7);
+            --border-color: #334155;
+            
+            /* Colors */
+            --color-inner: #22d3ee; /* Bright Cyan */
+            --color-outer: #f472b6; /* Soft Pink */
+            --color-pi: #fbbf24;    /* Amber */
+            --color-lens-border: #fff;
+        }
+
+        body.light-theme {
+            --bg-color: #f8fafc;
+            --text-primary: #0f172a;
+            --text-secondary: #475569;
+            --card-bg: rgba(255, 255, 255, 0.9);
+            --border-color: #cbd5e1;
+            --color-inner: #0891b2;
+            --color-outer: #be185d;
+            --color-lens-border: #333;
+        }
+
+        body {
+            margin: 0;
+            overflow: hidden;
+            background-color: var(--bg-color);
+            font-family: 'Segoe UI', Roboto, sans-serif;
+            color: var(--text-primary);
+            transition: background-color 0.5s;
+            user-select: none;
+        }
+
+        canvas { display: block; }
+
+        #ui-layer {
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 100%;
+            pointer-events: none;
+            padding: 20px;
+            box-sizing: border-box;
+            display: flex;
+            justify-content: space-between;
+        }
+
+        /* Left Panel */
+        .control-panel {
+            pointer-events: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            width: 280px;
+        }
+
+        h1 { margin: 0; font-size: 24px; font-weight: 800; }
+        h2 { margin: 2px 0 0 0; font-size: 13px; color: var(--text-secondary); font-weight: 400; }
+
+        button {
+            background: var(--card-bg);
+            border: 1px solid var(--border-color);
+            color: var(--text-primary);
+            padding: 12px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: all 0.2s;
+        }
+        button:hover { background: var(--border-color); }
+        button.active { border-color: var(--color-inner); color: var(--color-inner); background: rgba(34, 211, 238, 0.1); }
+
+        .slider-container {
+            background: var(--card-bg);
+            padding: 15px;
+            border-radius: 12px;
+            border: 1px solid var(--border-color);
+        }
+        .slider-header { display: flex; justify-content: space-between; font-size: 14px; margin-bottom: 8px; }
+        
+        /* Custom Range Slider */
+        input[type=range] {
+            width: 100%;
+            cursor: pointer;
+            accent-color: var(--color-inner);
+        }
+
+        /* Right Stats Panel */
+        .stats-panel {
+            pointer-events: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            width: 300px;
+            align-items: flex-end;
+        }
+
+        .stat-card {
+            background: var(--card-bg);
+            border: 1px solid var(--border-color);
+            padding: 12px 16px;
+            border-radius: 10px;
+            width: 100%;
+            backdrop-filter: blur(5px);
+            position: relative;
+        }
+
+        .stat-label { font-size: 11px; text-transform: uppercase; color: var(--text-secondary); font-weight: 700; letter-spacing: 1px; }
+        .stat-val { font-family: 'Courier New', monospace; font-size: 22px; font-weight: 700; margin-top: 4px; }
+        .stat-formula { font-size: 12px; opacity: 0.6; margin-top: 2px; }
+
+        /* Colors text */
+        .c-inner { color: var(--color-inner); }
+        .c-outer { color: var(--color-outer); }
+        .c-pi { color: var(--color-pi); }
+        
+        /* Accuracy Bar */
+        .acc-track { height: 4px; background: rgba(255,255,255,0.1); margin-top: 8px; border-radius: 2px; }
+        .acc-fill { height: 100%; width: 0%; transition: width 0.2s; }
+
+    </style>
+</head>
+<body>
+
+    <canvas id="world"></canvas>
+
+    <div id="ui-layer">
+        <!-- Controls -->
+        <div class="control-panel">
+            <div>
+                <h1>Approximating π</h1>
+                <h2>Archimedes' Method</h2>
+            </div>
+
+            <div class="slider-container">
+                <div class="slider-header">
+                    <span>Sides (N)</span>
+                    <!-- Display integer value -->
+                    <span id="n-val" class="c-inner" style="font-size: 18px; font-weight:bold;">3</span>
+                </div>
+                <!-- Min 3 (triangle), Max 32 (smooth circle look), Step 0.01 for smooth sliding -->
+                <input type="range" id="n-slider" min="3" max="32" step="0.01" value="3">
+            </div>
+
+            <button id="btn-play">▶ Auto Play (Slow)</button>
+            <button id="btn-reset">↺ Reset</button>
+            <button id="btn-theme">Theme Switch</button>
+        </div>
+
+        <!-- Stats -->
+        <div class="stats-panel">
+            <!-- Outer -->
+            <div class="stat-card" style="border-right: 4px solid var(--color-outer);">
+                <div class="stat-label">Outer Perimeter (Upper Bound)</div>
+                <div class="stat-val c-outer" id="out-val">5.196152</div>
+                <div class="stat-formula">N × tan(π/N) × 2</div>
+                <div class="acc-track"><div class="acc-fill" style="background:var(--color-outer)" id="out-bar"></div></div>
+            </div>
+
+            <!-- PI -->
+            <div class="stat-card" style="border-right: 4px solid var(--color-pi);">
+                <div class="stat-label">Target (π)</div>
+                <div class="stat-val c-pi">3.141592...</div>
+            </div>
+
+            <!-- Inner -->
+            <div class="stat-card" style="border-right: 4px solid var(--color-inner);">
+                <div class="stat-label">Inner Perimeter (Lower Bound)</div>
+                <div class="stat-val c-inner" id="in-val">2.598076</div>
+                <div class="stat-formula">N × sin(π/N) × 2</div>
+                <div class="acc-track"><div class="acc-fill" style="background:var(--color-inner)" id="in-bar"></div></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('world');
+        const ctx = canvas.getContext('2d');
+        
+        // DOM Elements
+        const slider = document.getElementById('n-slider');
+        const nDisplay = document.getElementById('n-val');
+        const btnPlay = document.getElementById('btn-play');
+        
+        // State Management
+        const STATE = {
+            n: 3,            // Current float value of sides
+            isAuto: false,   // Are we in auto mode?
+            theme: 'dark',
+            cx: 0, cy: 0,
+            radius: 160
+        };
+
+        const COLORS = {
+            dark: { bg: '#0b0f19', circle: 'rgba(255,255,255,0.15)', lensLine: '#fff' },
+            light: { bg: '#f8fafc', circle: 'rgba(0,0,0,0.1)', lensLine: '#333' }
+        };
+
+        // Resize Handling
+        function resize() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+            STATE.cx = canvas.width * 0.35; // Shift left to leave room for stats
+            STATE.cy = canvas.height * 0.5;
+        }
+        window.addEventListener('resize', resize);
+        resize();
+
+        // --- LOGIC FUNCTIONS ---
+
+        // Draw N-sided Polygon
+        function drawPoly(n, radius, color, isOuter, lineWidth) {
+            // We floor the N to draw integers, but the animation loop drives N smoothly.
+            // This creates a "snapping" effect for the shape which is mathematically correct,
+            // but the transition is fast.
+            const sides = Math.floor(n);
+            
+            ctx.beginPath();
+            ctx.strokeStyle = color;
+            ctx.lineWidth = lineWidth;
+            ctx.lineJoin = 'round';
+
+            // Radius Adjustment for Outer Polygon (Circumscribed)
+            // r_outer = r_inner / cos(PI/n)
+            const drawR = isOuter ? radius / Math.cos(Math.PI / sides) : radius;
+            const offset = -Math.PI / 2; // Rotate to start at top
+
+            for (let i = 0; i <= sides; i++) {
+                const theta = offset + (i * 2 * Math.PI / sides);
+                const x = STATE.cx + drawR * Math.cos(theta);
+                const y = STATE.cy + drawR * Math.sin(theta);
+                if (i === 0) ctx.moveTo(x, y);
+                else ctx.lineTo(x, y);
+            }
+            ctx.stroke();
+
+            // Draw vertices dots if N is low (cleaner look)
+            if(sides < 16) {
+                ctx.fillStyle = color;
+                for (let i = 0; i < sides; i++) {
+                    const theta = offset + (i * 2 * Math.PI / sides);
+                    const x = STATE.cx + drawR * Math.cos(theta);
+                    const y = STATE.cy + drawR * Math.sin(theta);
+                    ctx.beginPath();
+                    ctx.arc(x, y, 3, 0, Math.PI*2);
+                    ctx.fill();
+                }
+            }
+        }
+
+        function drawLens() {
+            const zoom = 15;
+            const lensR = 110;
+            const lensX = canvas.width - 150;
+            const lensY = canvas.height - 150;
+
+            ctx.save();
+            
+            // 1. Lens Background
+            ctx.beginPath();
+            ctx.arc(lensX, lensY, lensR, 0, Math.PI*2);
+            ctx.clip(); // Mask everything to circle
+            ctx.fillStyle = STATE.theme === 'dark' ? '#111' : '#fff';
+            ctx.fill();
+
+            // 2. Transform Coordinate System
+            // We want to look at the TOP of the circle (cx, cy - radius)
+            const lookAtX = STATE.cx;
+            const lookAtY = STATE.cy - STATE.radius;
+
+            ctx.translate(lensX, lensY); // Move 0,0 to lens center
+            ctx.scale(zoom, zoom);       // Zoom in
+            ctx.translate(-lookAtX, -lookAtY); // Move world so target is at 0,0
+
+            // 3. Redraw World (Simplified) inside Lens
+            const cStyle = getComputedStyle(document.body);
+            const cInner = cStyle.getPropertyValue('--color-inner').trim();
+            const cOuter = cStyle.getPropertyValue('--color-outer').trim();
+            const theme = COLORS[STATE.theme];
+
+            // Circle Edge
+            ctx.beginPath();
+            ctx.arc(STATE.cx, STATE.cy, STATE.radius, 0, Math.PI*2);
+            ctx.strokeStyle = theme.circle;
+            ctx.lineWidth = 1 / zoom; // Keep lines thin when zoomed
+            ctx.stroke();
+
+            // Polygons
+            drawPoly(STATE.n, STATE.radius, cInner, false, 2 / zoom);
+            drawPoly(STATE.n, STATE.radius, cOuter, true, 2 / zoom);
+
+            ctx.restore();
+
+            // 4. Lens Border & Text
+            const borderColor = COLORS[STATE.theme].lensLine;
+            ctx.beginPath();
+            ctx.arc(lensX, lensY, lensR, 0, Math.PI*2);
+            ctx.strokeStyle = borderColor;
+            ctx.lineWidth = 4;
+            ctx.stroke();
+
+            ctx.fillStyle = borderColor;
+            ctx.font = "12px Arial";
+            ctx.fillText("15x Zoom (Top Edge)", lensX - 50, lensY + lensR + 20);
+        }
+
+        function updateStats() {
+            const nInt = Math.floor(STATE.n);
+            const r = 1; // Unit circle for calculations
+
+            const pInner = (nInt * 2 * Math.sin(Math.PI / nInt)) / 2;
+            const pOuter = (nInt * 2 * Math.tan(Math.PI / nInt)) / 2;
+
+            // Text Updates
+            nDisplay.textContent = nInt;
+            document.getElementById('in-val').textContent = pInner.toFixed(6);
+            document.getElementById('out-val').textContent = pOuter.toFixed(6);
+
+            // Bar Visuals (0% at 2.5, 100% at PI)
+            const min = 2.59;
+            const max = Math.PI;
+            
+            // Inner approaches from bottom
+            let pctIn = ((pInner - min) / (max - min)) * 100;
+            // Outer approaches from top (Map 5.2 -> 0%, PI -> 100%)
+            let pctOut = (1 - (pOuter - Math.PI) / 2.0) * 100;
+
+            document.getElementById('in-bar').style.width = Math.min(100, Math.max(0, pctIn)) + "%";
+            document.getElementById('out-bar').style.width = Math.min(100, Math.max(0, pctOut)) + "%";
+        }
+
+        // Animation Loop
+        function animate() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            const theme = COLORS[STATE.theme];
+
+            // 1. Logic: Auto Play
+            if (STATE.isAuto) {
+                // VERY SLOW INCREMENT
+                // Increasing N by small amount per frame for smooth timeline
+                STATE.n += 0.03; 
+                
+                // Loop or Stop? Let's loop for demo
+                if (STATE.n > 32) STATE.n = 3;
+
+                // Update Slider UI to match animation
+                slider.value = STATE.n;
+            }
+
+            // 2. Draw Base Circle
+            ctx.beginPath();
+            ctx.arc(STATE.cx, STATE.cy, STATE.radius, 0, Math.PI*2);
+            ctx.strokeStyle = theme.circle;
+            ctx.lineWidth = 2;
+            ctx.stroke();
+
+            // 3. Draw Polygons
+            const cStyle = getComputedStyle(document.body);
+            const cInner = cStyle.getPropertyValue('--color-inner').trim();
+            const cOuter = cStyle.getPropertyValue('--color-outer').trim();
+            
+            drawPoly(STATE.n, STATE.radius, cInner, false, 2);
+            drawPoly(STATE.n, STATE.radius, cOuter, true, 2);
+
+            // 4. Lens
+            drawLens();
+
+            // 5. Stats
+            updateStats();
+
+            requestAnimationFrame(animate);
+        }
+
+        // --- CONTROLS EVENTS ---
+
+        // Slider Input (Manual Mode)
+        slider.addEventListener('input', (e) => {
+            // Important: Stop Auto Mode instantly if user grabs slider
+            STATE.isAuto = false; 
+            btnPlay.textContent = "▶ Auto Play (Slow)";
+            btnPlay.classList.remove('active');
+            
+            // Update Value directly
+            STATE.n = parseFloat(e.target.value);
+        });
+
+        // Play Button
+        btnPlay.addEventListener('click', () => {
+            STATE.isAuto = !STATE.isAuto;
+            if (STATE.isAuto) {
+                btnPlay.textContent = "⏸ Pause";
+                btnPlay.classList.add('active');
+            } else {
+                btnPlay.textContent = "▶ Auto Play (Slow)";
+                btnPlay.classList.remove('active');
+            }
+        });
+
+        // Reset Button
+        document.getElementById('btn-reset').addEventListener('click', () => {
+            STATE.isAuto = false;
+            btnPlay.textContent = "▶ Auto Play (Slow)";
+            btnPlay.classList.remove('active');
+            STATE.n = 3;
+            slider.value = 3;
+        });
+
+        // Theme Button
+        document.getElementById('btn-theme').addEventListener('click', () => {
+            STATE.theme = STATE.theme === 'dark' ? 'light' : 'dark';
+            document.body.classList.toggle('light-theme');
+        });
+
+        // Start
+        animate();
+
+    </script>
+</body>
+</html>
