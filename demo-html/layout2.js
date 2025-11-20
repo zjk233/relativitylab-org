@@ -38,6 +38,22 @@
         };
         initLayout();
     };
+    // analytics.js
+(function() {
+    const gaScript = document.createElement('script');
+    gaScript.async = true;
+    gaScript.src = "https://www.googletagmanager.com/gtag/js?id=G-TLM5FMP9KX";
+    document.head.appendChild(gaScript);
+
+    const inlineScript = document.createElement('script');
+    inlineScript.innerHTML = `
+       window.dataLayer = window.dataLayer || [];
+       function gtag(){dataLayer.push(arguments);}
+       gtag('js', new Date());
+       gtag('config', 'G-TLM5FMP9KX');
+       `;
+    document.head.appendChild(inlineScript);
+    })();
 
     function initLayout() {
         // 检测是否在 demo-html 子目录，用于生成回首页路径
