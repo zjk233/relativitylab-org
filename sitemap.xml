@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+
+  <!-- 根目录页面 -->
+  <url>
+    <loc>https://www.relativitylab.org/index.html</loc>
+  </url>
+
+  <!-- demo-html 文件夹内页面 -->
+  <url>
+    <loc>https://www.relativitylab.org/demo-html/Approximating-pi.html</loc>
+  </url>
+
+  <url>
+    <loc>https://www.relativitylab.org/demo-html/Brownian-Motion.html</loc>
+  </url>
+
+  <url>
+    <loc>https://www.relativitylab.org/demo-html/Central-Limit-Theorem.html</loc>
+  </url>
+
+  <url>
+    <loc>https://www.relativitylab.org/demo-html/Covalent-Bond-Formation.html</loc>
+  </url>
+
+  <url>
+    <loc>https://www.relativitylab.org/demo-html/eagle.html</loc>
+  </url>
+
+  <url>
+    <loc>https://www.relativitylab.org/demo-html/Electromagnetic-Induction.html</loc>
+  </url>
+
+  <url>
+    <loc>https://www.relativitylab.org/demo-html/Gravity-Well.html</loc>
+  </url>
+
+  <url>
+    <loc>https://www.relativitylab.org/demo-html/Neutralization.html</loc>
+  </url>
+
+  <url>
+    <loc>https://www.relativitylab.org/demo-html/Newton-First-Law.html</loc>
+  </url>
+
+  <url>
+    <loc>https://www.relativitylab.org/demo-html/Pythagorean-Theorem.html</loc>
+  </url>
+
+  <url>
+    <loc>https://www.relativitylab.org/demo-html/Wave-Interference.html</loc>
+  </url>
+
+</urlset>
