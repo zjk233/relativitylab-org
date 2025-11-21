@@ -1,0 +1,582 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='0.9em' font-size='90'%3E🧪%3C/text%3E%3C/svg%3E">
+    <title>Advanced DNA Decomposition</title>
+    <script src="layout2.js"></script>
+    <style>
+        /* --- SCI-FI DARK UI --- */
+        :root {
+            --neon-cyan: #00f3ff;
+            --neon-magenta: #ff00ff;
+            --dark-bg: #515050e7;
+            --panel-bg: rgba(33, 33, 33, 0.9);
+        }
+
+        body {
+            margin: 0;
+            overflow: hidden;
+            background-color: var(--dark-bg);
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            color: white;
+        }
+
+        /* Control Panel */
+        #ui-layer {
+            position: absolute;
+            bottom: 30px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 85%;
+            max-width: 800px;
+            background: var(--panel-bg);
+            border: 1px solid #333;
+            border-top: 3px solid var(--neon-cyan);
+            border-radius: 8px;
+            padding: 25px;
+            box-shadow: 0 0 30px rgba(0, 243, 255, 0.15);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            z-index: 10;
+            backdrop-filter: blur(5px);
+        }
+
+        h1 {
+            margin: 0 0 5px 0;
+            font-size: 1.4rem;
+            text-transform: uppercase;
+            letter-spacing: 4px;
+            color: var(--neon-cyan);
+            text-shadow: 0 0 15px var(--neon-cyan);
+            font-weight: 700;
+        }
+
+        #status-display {
+            font-family: 'Courier New', Courier, monospace;
+            color: #cccccc;
+            margin-bottom: 20px;
+            font-size: 0.9rem;
+            min-height: 1.2em;
+            text-align: center;
+        }
+
+        /* Tech Buttons */
+        .controls {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 15px;
+            justify-content: center;
+        }
+
+        button {
+            background: rgba(0,0,0,0.5);
+            color: #fff;
+            border: 1px solid #555;
+            padding: 12px 24px;
+            font-size: 0.85rem;
+            text-transform: uppercase;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            position: relative;
+            overflow: hidden;
+            font-weight: 600;
+            letter-spacing: 1px;
+        }
+
+        button:hover {
+            border-color: var(--neon-cyan);
+            box-shadow: 0 0 15px rgba(0, 243, 255, 0.3);
+            text-shadow: 0 0 5px white;
+        }
+
+        button.active {
+            background: rgba(0, 243, 255, 0.15);
+            border-color: var(--neon-cyan);
+            color: var(--neon-cyan);
+        }
+
+        /* Loading Screen */
+        #loader {
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: #000;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 100;
+            color: var(--neon-cyan);
+            font-family: monospace;
+            font-size: 1.5rem;
+            letter-spacing: 5px;
+        }
+    </style>
+    
+    <!-- Libraries -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/tween.js/18.6.4/tween.umd.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+</head>
+<body>
+
+    <div id="loader">INITIALIZING SIMULATION...</div>
+
+    <div id="ui-layer">
+        <h1 id="phase-title">DNA Structure Analysis</h1>
+        <div id="status-display">Target Acquired. Molecular Integrity: 100%.</div>
+        
+        <div class="controls">
+            <button id="btn-1" class="active">1. Structure</button>
+            <button id="btn-2">2. Endonuclease Cut</button>
+            <button id="btn-3">3. Exonuclease</button>
+            <button id="btn-4">4. Total Decomposition</button>
+        </div>
+    </div>
+
+    <script>
+        // ================= SCENE SETUP =================
+        const scene = new THREE.Scene();
+        scene.background = new THREE.Color(0x000000);
+        scene.fog = new THREE.FogExp2(0x000000, 0.012);
+
+        const camera = new THREE.PerspectiveCamera(50, window.innerWidth / window.innerHeight, 0.1, 1000);
+        camera.position.set(0, 2, 45);
+
+        const renderer = new THREE.WebGLRenderer({ antialias: true });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.setPixelRatio(window.devicePixelRatio);
+        // High contrast tonemapping for "Neon" look
+        renderer.toneMapping = THREE.ACESFilmicToneMapping;
+        renderer.toneMappingExposure = 1.2;
+        document.body.appendChild(renderer.domElement);
+
+        // Controls
+        const controls = new THREE.OrbitControls(camera, renderer.domElement);
+        controls.enableDamping = true;
+        controls.dampingFactor = 0.05;
+        controls.autoRotate = true;
+        controls.autoRotateSpeed = 1.5;
+
+        // ================= LIGHTING =================
+        const ambLight = new THREE.AmbientLight(0x222222); 
+        scene.add(ambLight);
+
+        // Dramatic Rim Lights
+        const spot1 = new THREE.SpotLight(0x00f3ff, 3);
+        spot1.position.set(20, 20, 20);
+        scene.add(spot1);
+
+        const spot2 = new THREE.SpotLight(0xff00ff, 3);
+        spot2.position.set(-20, -20, 20);
+        scene.add(spot2);
+
+        // ================= MATERIALS =================
+        
+        // Backbone (Spheres) - Metallic
+        const matBackbone = new THREE.MeshStandardMaterial({
+            color: 0xaaaaaa,
+            metalness: 0.9,
+            roughness: 0.2
+        });
+
+        // The "Sticks" (Rungs) - Glowing Neon
+        const matBaseBlue = new THREE.MeshStandardMaterial({
+            color: 0x0088ff,
+            emissive: 0x0088ff,
+            emissiveIntensity: 0.8,
+            roughness: 0.1
+        });
+
+        const matBasePurple = new THREE.MeshStandardMaterial({
+            color: 0xaa00ff,
+            emissive: 0xaa00ff,
+            emissiveIntensity: 0.8,
+            roughness: 0.1
+        });
+
+        // Scissors (Clamp) Material
+        const matSteel = new THREE.MeshStandardMaterial({
+            color: 0x444444,
+            metalness: 1.0,
+            roughness: 0.3
+        });
+        const matBladeEdge = new THREE.MeshBasicMaterial({
+            color: 0xff3333 // Red hot edge
+        });
+
+        // ================= GEOMETRY: DNA HELIX =================
+
+        const dnaGroup = new THREE.Group();
+        scene.add(dnaGroup);
+
+        const basePairs = []; // Store objects to animate later
+        const numPairs = 30;
+        const helixRadius = 3.5;
+        const heightStep = 1.0;
+        const rotationStep = 0.5; // Radians
+
+        // Function to build a single split-able rung
+        function createBasePair(index) {
+            const y = (index * heightStep) - (numPairs * heightStep / 2);
+            const angle = index * rotationStep;
+
+            const pairGroup = new THREE.Group();
+            pairGroup.position.y = y;
+            
+            // Calculate positions on the circle
+            const x = Math.cos(angle) * helixRadius;
+            const z = Math.sin(angle) * helixRadius;
+
+            // --- LEFT SIDE (Side A) ---
+            const leftGroup = new THREE.Group();
+            leftGroup.position.set(x, 0, z); // Relative to pairGroup Y
+            leftGroup.lookAt(0, 0, 0); // Point inward
+            
+            // Sphere (Backbone)
+            const sphereL = new THREE.Mesh(new THREE.SphereGeometry(0.5, 16, 16), matBackbone);
+            leftGroup.add(sphereL);
+
+            // Cylinder (Half-Rung)
+            // Radius of helix is 3.5. Sphere radius 0.5. 
+            // We want the stick to go from sphere to center. Length approx 3.0.
+            const stickGeo = new THREE.CylinderGeometry(0.15, 0.15, helixRadius - 0.2, 8);
+            stickGeo.rotateX(-Math.PI / 2); // Lay flat pointing Z
+            stickGeo.translate(0, 0, (helixRadius - 0.2) / 2); // Move pivot to sphere
+            
+            const stickL = new THREE.Mesh(stickGeo, matBaseBlue);
+            leftGroup.add(stickL);
+
+            // --- RIGHT SIDE (Side B) ---
+            const rightGroup = new THREE.Group();
+            // Opposite side
+            const x2 = Math.cos(angle + Math.PI) * helixRadius;
+            const z2 = Math.sin(angle + Math.PI) * helixRadius;
+            
+            rightGroup.position.set(x2, 0, z2);
+            rightGroup.lookAt(0, 0, 0);
+
+            // Sphere
+            const sphereR = new THREE.Mesh(new THREE.SphereGeometry(0.5, 16, 16), matBackbone);
+            rightGroup.add(sphereR);
+
+            // Cylinder (Half-Rung)
+            const stickR = new THREE.Mesh(stickGeo, matBasePurple);
+            rightGroup.add(stickR);
+
+            // Add to container
+            pairGroup.add(leftGroup);
+            pairGroup.add(rightGroup);
+            dnaGroup.add(pairGroup);
+
+            // Store refs for animation
+            // id: index, l: leftGroup, r: rightGroup, origY: y
+            basePairs.push({
+                id: index,
+                group: pairGroup,
+                left: leftGroup,
+                right: rightGroup,
+                initPosL: leftGroup.position.clone(),
+                initPosR: rightGroup.position.clone(),
+                isFloating: false
+            });
+        }
+
+        // Build the helix
+        for(let i=0; i<numPairs; i++) {
+            createBasePair(i);
+        }
+
+        // ================= SCISSORS (ENDONUCLEASE) =================
+        
+        const scissorGroup = new THREE.Group();
+        scene.add(scissorGroup);
+        scissorGroup.visible = false;
+
+        // Create a mechanical claw shape
+        function createClaw() {
+            const claw = new THREE.Group();
+            
+            // Main arm
+            const armGeo = new THREE.BoxGeometry(1, 4, 1);
+            const arm = new THREE.Mesh(armGeo, matSteel);
+            arm.position.y = 2;
+            
+            // Blade tip (glowing)
+            const tipGeo = new THREE.BoxGeometry(0.2, 1.5, 1.1);
+            const tip = new THREE.Mesh(tipGeo, matBladeEdge);
+            tip.position.y = 4.5;
+            tip.position.x = 0.2; // Offset for cutting action
+
+            claw.add(arm, tip);
+            // Pivot at (0,0,0)
+            return claw;
+        }
+
+        const clawL = createClaw();
+        clawL.rotation.z = -0.5; // Open state
+        
+        const clawR = createClaw();
+        clawR.scale.x = -1; // Mirror
+        clawR.rotation.z = 0.5; // Open state
+
+        // Base of scissors
+        const baseGeo = new THREE.CylinderGeometry(1, 1.2, 2, 16);
+        const baseMesh = new THREE.Mesh(baseGeo, matSteel);
+        baseMesh.rotation.x = Math.PI / 2;
+        
+        scissorGroup.add(baseMesh, clawL, clawR);
+        scissorGroup.scale.set(1.5, 1.5, 1.5);
+
+        // Spark Effect (Point Light + Sprite)
+        const sparkLight = new THREE.PointLight(0xffaa00, 0, 20);
+        scissorGroup.add(sparkLight);
+
+        // ================= PACMAN (EXONUCLEASE) =================
+        const exoGroup = new THREE.Group();
+        // A tech sphere with a mouth
+        const exoGeo = new THREE.SphereGeometry(2, 32, 32, 0, Math.PI * 2, 0.2, Math.PI - 0.4);
+        const exoMat = new THREE.MeshStandardMaterial({
+            color: 0xffcc00, roughness: 0.2, metalness: 0.5, transparent: true, opacity: 0.9
+        });
+        const exoMesh = new THREE.Mesh(exoGeo, exoMat);
+        exoMesh.rotation.x = -Math.PI/2; // Face mouth forward
+        
+        // Tech ring around it
+        const ringGeo = new THREE.TorusGeometry(2.5, 0.1, 16, 50);
+        const ringMesh = new THREE.Mesh(ringGeo, new THREE.MeshBasicMaterial({color: 0xffffff, wireframe:true}));
+        
+        exoGroup.add(exoMesh, ringMesh);
+        exoGroup.visible = false;
+        scene.add(exoGroup);
+
+        // ================= LOGIC & ANIMATION =================
+
+        let currentState = 0;
+        const titleEl = document.getElementById('phase-title');
+        const statusEl = document.getElementById('status-display');
+        const loader = document.getElementById('loader');
+
+        // Hide loader
+        setTimeout(() => { loader.style.display = 'none'; }, 500);
+
+        function resetScene() {
+            TWEEN.removeAll();
+            currentState = 0;
+            controls.autoRotate = true;
+            
+            // Hide tools
+            scissorGroup.visible = false;
+            exoGroup.visible = false;
+            sparkLight.intensity = 0;
+
+            // Reset DNA
+            new TWEEN.Tween(dnaGroup.rotation).to({x:0, y:0, z:0}, 1000).start();
+            
+            basePairs.forEach(bp => {
+                bp.isFloating = false;
+                // Reset Pair Group position (fixes broken backbone)
+                const origY = (bp.id * heightStep) - (numPairs * heightStep / 2);
+                new TWEEN.Tween(bp.group.position).to({x:0, y:origY, z:0}, 1000).easing(TWEEN.Easing.Quadratic.Out).start();
+                new TWEEN.Tween(bp.group.rotation).to({x:0, y:0, z:0}, 1000).start();
+
+                // Reset Halves (fixes split stick)
+                new TWEEN.Tween(bp.left.position).to(bp.initPosL, 1000).start();
+                new TWEEN.Tween(bp.right.position).to(bp.initPosR, 1000).start();
+                
+                bp.left.rotation.set(0,0,0);
+                bp.right.rotation.set(0,0,0);
+            });
+
+            updateText("DNA Helix Structure", "Hydrogen bonds intact. Double helix stable.");
+        }
+
+        function stageCut() {
+            if(currentState >= 1) return;
+            currentState = 1;
+            controls.autoRotate = false;
+            updateText("Phase 1: Endonuclease Restriction", "Enzyme locates specific sequence. Cleaving backbone.");
+
+            // 1. Position DNA horizontally for the cut
+            new TWEEN.Tween(dnaGroup.rotation)
+                .to({ x: 0, y: 0, z: Math.PI / 2 }, 1000)
+                .easing(TWEEN.Easing.Back.Out)
+                .start();
+
+            // 2. Bring in Scissors
+            scissorGroup.visible = true;
+            // Position "above" the middle of the DNA
+            scissorGroup.position.set(0, 10, 0); 
+            scissorGroup.rotation.z = 0; 
+            
+            // Open claws
+            clawL.rotation.z = -0.5;
+            clawR.rotation.z = 0.5;
+
+            // Drop down
+            new TWEEN.Tween(scissorGroup.position)
+                .to({ y: 0 }, 800)
+                .delay(800)
+                .easing(TWEEN.Easing.Cubic.Out)
+                .onComplete(() => {
+                    // 3. Clamp Animation
+                    new TWEEN.Tween(clawL.rotation).to({ z: 0 }, 200).start();
+                    new TWEEN.Tween(clawR.rotation).to({ z: 0 }, 200).start();
+                    
+                    // Spark flash
+                    new TWEEN.Tween(sparkLight)
+                        .to({ intensity: 8 }, 50)
+                        .delay(200)
+                        .yoyo(true).repeat(1)
+                        .onComplete(() => {
+                            breakBackbone();
+                            // Retreat
+                            new TWEEN.Tween(scissorGroup.position).to({ y: 20 }, 1000).delay(200).start();
+                        })
+                        .start();
+                })
+                .start();
+        }
+
+        function breakBackbone() {
+            const mid = Math.floor(numPairs / 2);
+            // Split DNA in half (Left vs Right due to 90deg rotation)
+            basePairs.forEach(bp => {
+                const offset = bp.id >= mid ? 3 : -3;
+                // Because we rotated the Group Z by 90deg, Y axis is now horizontal local axis
+                new TWEEN.Tween(bp.group.position)
+                    .to({ y: bp.group.position.y + offset }, 1500)
+                    .easing(TWEEN.Easing.Elastic.Out)
+                    .start();
+            });
+        }
+
+        function stageDigestion() {
+            if(currentState < 1) { stageCut(); setTimeout(stageDigestion, 2500); return; }
+            if(currentState >= 2) return;
+            currentState = 2;
+            
+            updateText("Phase 2: Exonuclease Digestion", "Removing terminal nucleotides from exposed ends.");
+
+            exoGroup.visible = true;
+            exoGroup.position.set(-12, 0, 0); // Start left (after rotation)
+
+            // Move Pacman through the gap
+            new TWEEN.Tween(exoGroup.position)
+                .to({ x: 12 }, 4000)
+                .onUpdate((pos) => {
+                    // Chomp animation
+                    const mouthOpen = (Math.sin(pos.x * 2) + 1) * 0.5; 
+                    exoGroup.children[0].geometry = new THREE.SphereGeometry(2, 32, 32, 0, Math.PI * 2, 0.2, Math.PI - (mouthOpen * 0.8));
+                })
+                .start();
+
+            // Scatter some pieces as it passes
+            const targets = [13, 14, 15, 16]; // Middle indices
+            targets.forEach((id, i) => {
+                const bp = basePairs[id];
+                if(bp) {
+                     new TWEEN.Tween(bp.group.position)
+                        .to({ z: (Math.random()-0.5) * 10, x: (Math.random()-0.5) * 10 }, 1000)
+                        .delay(1500 + (i*200))
+                        .easing(TWEEN.Easing.Bounce.Out)
+                        .onStart(() => { bp.isFloating = true; })
+                        .start();
+                }
+            });
+        }
+
+        function stageDecomposition() {
+            currentState = 3;
+            updateText("Phase 3: Denaturation", "Hydrogen bonds break. Rungs split. Complete breakdown.");
+            
+            // Hide tools
+            scissorGroup.visible = false;
+            exoGroup.visible = false;
+
+            // EXPLODE EVERYTHING
+            // Key change: Split the sticks!
+            basePairs.forEach((bp, i) => {
+                bp.isFloating = true;
+
+                // 1. Move Pair Group randomly
+                new TWEEN.Tween(bp.group.position)
+                    .to({
+                        x: (Math.random() - 0.5) * 30,
+                        y: (Math.random() - 0.5) * 30,
+                        z: (Math.random() - 0.5) * 30
+                    }, 2000)
+                    .delay(i * 20)
+                    .easing(TWEEN.Easing.Power2.Out)
+                    .start();
+
+                // 2. SPLIT THE STICK (Left and Right parts move away from center)
+                // Local Z is pointing to center in our setup, or X depending on lookAt.
+                // Actually, we placed them at X and LookAt(0,0,0). 
+                // Moving them along Z local axis moves them backward (away from center).
+                
+                new TWEEN.Tween(bp.left.position)
+                    .to({ z: 5 }, 1500) // Pull away from center
+                    .easing(TWEEN.Easing.Expo.Out)
+                    .start();
+
+                new TWEEN.Tween(bp.right.position)
+                    .to({ z: 5 }, 1500)
+                    .easing(TWEEN.Easing.Expo.Out)
+                    .start();
+
+                // Add random rotation to the individual pieces
+                new TWEEN.Tween(bp.left.rotation).to({x:Math.random()*6, y:Math.random()*6}, 2000).start();
+                new TWEEN.Tween(bp.right.rotation).to({x:Math.random()*6, y:Math.random()*6}, 2000).start();
+            });
+        }
+
+        function updateText(title, desc) {
+            titleEl.innerText = title;
+            statusEl.innerText = desc;
+        }
+
+        // UI Bindings
+        const btns = document.querySelectorAll('button');
+        btns.forEach((btn, idx) => {
+            btn.addEventListener('click', () => {
+                btns.forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+                
+                if(idx === 0) resetScene();
+                if(idx === 1) stageCut();
+                if(idx === 2) stageDigestion();
+                if(idx === 3) stageDecomposition();
+            });
+        });
+
+
+        // ================= LOOP =================
+        function animate(time) {
+            requestAnimationFrame(animate);
+            TWEEN.update(time);
+            controls.update();
+
+            // Floating animation for broken pieces
+            basePairs.forEach(bp => {
+                if(bp.isFloating) {
+                    bp.left.rotation.x += 0.01;
+                    bp.right.rotation.y += 0.01;
+                }
+            });
+
+            renderer.render(scene, camera);
+        }
+        animate();
+
+        // Resize
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
+    </script>
+</body>
+</html>
