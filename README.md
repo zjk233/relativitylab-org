@@ -75,13 +75,14 @@ Contributions are welcome! Feel free to add new demos, optimize existing ones, o
 ## 📄 License  
 Released under the **MIT License**.
 
----
+##  Contributors
 
-If you'd like, I can also generate:
+This project was created with significant assistance from multiple AI systems
+during design, coding, scientific modeling, and rapid prototyping:
 
-- a Chinese version `README_zh.md`  
-- a GitHub banner  
-- an open-source project logo  
-- social media announcement text  
+- **Google Gemini 3** – primary generation engine for the 4-hour rapid build  
+- **OpenAI ChatGPT** – refinement, debugging, documentation support  
+- **Anthropic Claude** – code improvement, conceptual clarification, UX polishing  
 
-Just let me know!
+Their combined contributions enabled this project to be built in an extremely short time while maintaining high visual and scientific quality.
+
