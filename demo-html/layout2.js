@@ -8,7 +8,26 @@
     fontLink.rel = "stylesheet";
     fontLink.href = "https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&display=swap";
     document.head.appendChild(fontLink);
-    //sdw
+    
+     tailwindScript.onload = function() {
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        bgDark: '#050505',
+                        glass: 'rgba(25, 25, 25, 0.6)',
+                        borderGlass: 'rgba(255, 255, 255, 0.08)',
+                        accent: '#38bdf8',
+                        textMuted: '#94a3b8'
+                    },
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                    }
+                }
+            }
+        };
+        initLayout();
+    };
 
 
 
